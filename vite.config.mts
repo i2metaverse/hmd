@@ -1,3 +1,9 @@
+/**
+ * This is the Vite configuration file for the project.
+ * - it is mts to explicitly indiate it should be processed as
+ *   a ECMAScript module (and not a CommonJS module)
+ */
+
 /// <reference types="vitest" />
 import { defineConfig } from 'vite'
 
