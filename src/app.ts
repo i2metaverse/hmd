@@ -5,13 +5,15 @@
  */
 
 import {
-    ArcRotateCamera,
     Engine,
-    HemisphericLight,
-    Mesh,
     Scene,
+    FreeCamera,
+    CreateSphere,
+    HemisphericLight,
     Vector3,
+    CreateGround
 } from "@babylonjs/core";
+import {GridMaterial} from "@babylonjs/materials";
 
 // App class
 // - this is the main class for the web application
@@ -43,20 +45,30 @@ export class App {
         // Create the BabylonJS scene
         const scene = new Scene(this.engine);
 
-        // Create the camera
-        const camera = new ArcRotateCamera('camera', -Math.PI / 2, Math.PI / 2.5, 10, Vector3.Zero(), scene);
+        // Create a free camera
+        const camera = new FreeCamera('camera', new Vector3(0, 5, -10), scene);
+       
+        // Attach the camera to the canvas
+        camera.attachControl(this.engine.getRenderingCanvas(), true);
 
-        // Create the light
+        // Create the light and add it to the scene
         const light = new HemisphericLight('light', new Vector3(0, 1, 0), scene);
+        light.intensity = 0.7;
 
-        // Create a sphere
-        const sphere = Mesh.CreateSphere('sphere', 16, 2, scene);
+        // Create grid material
+        const material = new GridMaterial('grid', scene);
+
+        // Create a sphere with the grid material and shift it up
+        const sphere = CreateSphere('sphere', {segments: 16, diameter: 2}, scene);
+        sphere.position.y = 2;
+        sphere.material = material;
 
         // Set the camera target to the sphere
         camera.setTarget(sphere.position);
 
-        // Set the camera position
-        camera.setPosition(new Vector3(0, 0, 10));
+        // Create a ground plane with the grid material
+        const ground = CreateGround('ground', {width: 6, height: 6}, scene);
+        ground.material = material;
 
         // Return the scene when it is ready
         return scene;
