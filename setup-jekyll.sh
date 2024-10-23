@@ -33,6 +33,9 @@ if [ -f index.html ]; then
     <h2 style="font-family: Helvetica, sans-serif; text-align: center; background-color: #333333; color: #B272FF; padding: 16px; margin: 0; position: fixed; top: 20px; z-index: 10; border-top-right-radius: 15px; border-bottom-right-radius: 15px; border: 3px solid #B272FF;">DIA Playground</h1>
 ' index.html
 
+  # Remove leading slashes in asset paths in index.html
+  sed -i '' 's|src="/assets|src="assets|g' index.html
+
   # add front matter to index.html
   echo -e "---\nlayout: default\ntitle: Home\n---\n" | cat - index.html > temp && mv temp index.html
   # add a visual title header text "Developing Immersive Applications Playground"

@@ -74,7 +74,7 @@ export class App {
         scene.clearColor.set(0.15, 0.15, 0.15, 1);
 
         // Create a arcRotate camera and attach it to the canvas
-        const camera = new ArcRotateCamera('camera', 5, 1, 16, new Vector3(0, 0, 0), scene);
+        const camera = new ArcRotateCamera('camera', 5, 1, 15, new Vector3(0, 0, 0), scene);
         camera.attachControl(this.engine.getRenderingCanvas(), true);
 
         // create a hemispheric light
