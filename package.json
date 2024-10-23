@@ -5,7 +5,8 @@
     "main": "index.js",
     "scripts": {
         "dev": "vite",
-        "build": "tsc && vite build",
+        "build": "tsc && vite build && ./setup-jekyll.sh",
+        "pages": "./setup-jekyll.sh",
         "preview": "vite preview",
         "test": "vitest --reporter=verbose",
         "test:ui": "vitest --ui",

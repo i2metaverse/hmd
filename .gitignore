@@ -1,6 +1,9 @@
 # Vim
 Session.vim
 
+# jekyll
+_site
+
 # Logs
 logs
 *.log
