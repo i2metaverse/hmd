@@ -7,16 +7,15 @@
 import {
     Engine,
     Scene,
-    CreateSphere,
     HemisphericLight,
     Vector3,
     CreateGround,
     MeshBuilder,
     StandardMaterial,
     DirectionalLight,
-    ShadowGenerator
+    ShadowGenerator,
+    ArcRotateCamera
 } from "@babylonjs/core";
-import {ArcRotateCamera} from "babylonjs";
 
 // App class
 // - this is the main class for the web application
