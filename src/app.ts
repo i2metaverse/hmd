@@ -14,8 +14,8 @@ import {
     StandardMaterial,
     DirectionalLight,
     ShadowGenerator,
-    ArcRotateCamera
-} from "@babylonjs/core";
+    ArcRotateCamera,
+    Color4} from "@babylonjs/core";
 
 // App class
 // - this is the main class for the web application
@@ -79,26 +79,27 @@ export class App {
 
         // create a hemispheric light
         const hemiLight = new HemisphericLight('hemiLight', new Vector3(0, 1, 0), scene);
-        hemiLight.intensity = 0.7;
+        hemiLight.intensity = 0.6;
 
         // create a directional light that will cast shadows
         const dirLight = new DirectionalLight('dirLight', new Vector3(0, -1, -1), scene);
         dirLight.position = new Vector3(0, 10, 10);
-        dirLight.intensity = 0.8;
+        dirLight.intensity = 0.3;
         dirLight.shadowEnabled = true;
         dirLight.shadowMinZ = 1;
         dirLight.shadowMaxZ = 100;
 
         // Create shadow generator for the directional light
         const shadowGenerator = new ShadowGenerator(1024, dirLight);
+        shadowGenerator.useBlurExponentialShadowMap = true;
 
         // Create grid material with finer grid lines
         const mat1 = new StandardMaterial('red', scene);
-        mat1.diffuseColor.set(1, 0, 0);
-        const mat2 = new StandardMaterial('blue', scene);
-        mat2.diffuseColor.set(0, 1, 0);
-        const mat3 = new StandardMaterial('green', scene);
-        mat3.diffuseColor.set(0, 0, 1);
+        mat1.diffuseColor.set(1, .3, .5);
+        const mat2 = new StandardMaterial('green', scene);
+        mat2.diffuseColor.set(.5, 1, .6);
+        const mat3 = new StandardMaterial('blue', scene);
+        mat3.diffuseColor.set(.3, .5, 1);
 
         // Create a box with the grid material and shift it up and left, and rotate
         const box = MeshBuilder.CreateBox('box', {size: 2}, scene);
@@ -111,17 +112,35 @@ export class App {
 
         // Create a cone with the grid material and shift it up and right
         const tor = MeshBuilder.CreateTorusKnot('tor', 
-            {radius: 1, tube: 0.4, radialSegments: 100, tubularSegments: 20}, scene);
+            {radius: 1, tube: 0.35, radialSegments: 100, tubularSegments: 20}, scene);
         tor.position.y = 2;
         tor.position.x = 2;
-        tor.material = mat2;
+        tor.material = mat3;
         tor.receiveShadows = true;
         shadowGenerator.addShadowCaster(tor);
 
         // Create a ground plane with the grid material
         const ground = CreateGround('ground', {width: 10, height: 10}, scene);
-        ground.material = mat3;
+        ground.material = mat2;
         ground.receiveShadows = true;
+
+        // Ensure shadows are dynamic
+        scene.registerBeforeRender(function () {
+            // Update the light to be above the camera, but offset in the Y-axis
+            dirLight.position.x = camera.position.x;
+            dirLight.position.y = camera.position.y + 10; // Always keep the light 10 units above the camera
+            dirLight.position.z = camera.position.z;
+        });
+
+        //////////////
+        // Frustums //
+        const frustumL = MeshBuilder.CreateBox('frustumL', {size: 2}, scene);
+        frustumL.position = new Vector3(-5, 2, 0);
+        frustumL.enableEdgesRendering();
+        frustumL.edgesWidth = 1;
+        frustumL.edgesColor = new Color4(1, 0.5, 0.5, 1);
+        frustumL.visibility = 0.1;
+
 
         // Return the scene when it is ready
         return scene;
