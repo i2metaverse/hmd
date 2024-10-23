@@ -76,8 +76,8 @@ PLATFORMS
   arm64-darwin
 
 DEPENDENCIES
-  jekyll (~> 4.3.4)
-  minima (~> 2.5)
+  jekyll
+  minima
 
 BUNDLED WITH
    2.5.22
