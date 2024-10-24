@@ -15,7 +15,10 @@ import {
     DirectionalLight,
     ShadowGenerator,
     ArcRotateCamera,
-    Color4} from "@babylonjs/core";
+    Color4,
+    FreeCamera,
+    Matrix,
+    Mesh} from "@babylonjs/core";
 
 // App class
 // - this is the main class for the web application
@@ -105,7 +108,7 @@ export class App {
         const box = MeshBuilder.CreateBox('box', {size: 2}, scene);
         box.position.y = 2;
         box.position.x = -2;
-        box.rotation = new Vector3(Math.PI / 4, Math.PI / 4, 0);
+        box.rotation = new Vector3(Math.PI / 4, Math.PI / 4, 10);
         box.material = mat1;
         box.receiveShadows = true;
         shadowGenerator.addShadowCaster(box);
@@ -141,6 +144,77 @@ export class App {
         frustumL.edgesColor = new Color4(1, 0.5, 0.5, 1);
         frustumL.visibility = 0.1;
 
+        //try {
+            //const positionData = frustumL.getPositionData();
+            //const initPositions = new Float32Array(positionData);
+            //// Continue processing with initPositions...
+        //} catch (error) {
+            //console.error(
+                //"An error occurred while initializing positions:",
+                //error
+            //);
+            //// Handle the error case, e.g., set default values or take alternative actions.
+        //}
+
+        // Create a camera for the left eye
+        const camL = new FreeCamera('camL', new Vector3(-5, 2, 0), scene);
+        camL.minZ = 0.1;
+        camL.maxZ = 2;
+        camL.projectionPlaneTilt = 0.0;
+
+        // Create focal plane
+        let screenHalfHeight = 0.17;
+        let distToScreen = 0.8;
+        let aspectRatio = 16 / 9;
+        const focalPlane = MeshBuilder.CreatePlane('focalPlane', {size: 1}, scene);
+        focalPlane.scaling.copyFromFloats(2 * screenHalfHeight * aspectRatio, 2 * screenHalfHeight, 1);
+        focalPlane.enableEdgesRendering();
+        focalPlane.edgesWidth = 1;
+        focalPlane.visibility = 0.1;
+        focalPlane.edgesColor = new Color4(0.5, 0.5, 1, 1);
+
+        function setProjection(cam: FreeCamera, camOffset: number, screenHalfHeight: number) {
+            const engine = cam.getEngine();
+            const canvas = engine.getRenderingCanvas();
+            if (canvas === null) {
+                throw new Error('Canvas is null');
+            }
+
+            // distance to the focal plane is the distance of the eye to the screen plane
+            const distToFocalPlane = Math.abs(cam.position.z);
+
+            cam.fov = 2 * Math.atan(screenHalfHeight / distToFocalPlane);
+
+            const projMat = Matrix.PerspectiveFovLH(cam.fov, aspectRatio, cam.minZ, cam.maxZ, 
+                engine.isNDCHalfZRange, cam.projectionPlaneTilt, engine.useReverseDepthBuffer);
+            projMat.addAtIndex(8, cam.position.x / (screenHalfHeight * aspectRatio));
+            projMat.addAtIndex(9, cam.position.y / screenHalfHeight);
+            cam._projectionMatrix.copyFrom(projMat);
+
+            return projMat;
+        }
+
+        function updateFrustum(cam: FreeCamera, frustum: Mesh, eyePos: number) {
+            const projMat = setProjection(cam, eyePos, screenHalfHeight);
+            const invProjMat = projMat.clone().invert();
+            const invViewMat = cam.getViewMatrix().clone().invert();
+
+            const positions = frustum.getVerticesData('position');
+
+            if (positions) {
+                const newPositions = new Float32Array(positions.length);
+                for (let i = 0; i < positions.length; i += 3) {
+                    const pos = new Vector3(positions[i], positions[i + 1], positions[i + 2]);
+                    const worldPos = Vector3.TransformCoordinates(pos, invProjMat);
+                    const viewPos = Vector3.TransformCoordinates(worldPos, invViewMat);
+                    newPositions[i] = viewPos.x;
+                    newPositions[i + 1] = viewPos.y;
+                    newPositions[i + 2] = viewPos.z;
+                }
+
+                frustum.updateVerticesData('position', newPositions);
+            }
+        }
 
         // Return the scene when it is ready
         return scene;
