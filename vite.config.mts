@@ -5,7 +5,7 @@
  */
 
 /// <reference types="vitest" />
-import { defineConfig } from 'vite'
+import { defineConfig } from 'vite';
 
 export default defineConfig({
     test: {
@@ -29,4 +29,5 @@ export default defineConfig({
     build: {
         outDir: 'docs'
     },
-})
+    base: '/dia-playground/',
+});
