@@ -17,8 +17,9 @@ import {
     ArcRotateCamera,
     Color4,
     FreeCamera,
-    Matrix,
-    Mesh} from "@babylonjs/core";
+    //Matrix,
+    //Mesh
+} from "@babylonjs/core";
 
 // App class
 // - this is the main class for the web application
@@ -164,7 +165,7 @@ export class App {
 
         // Create focal plane
         let screenHalfHeight = 0.17;
-        let distToScreen = 0.8;
+        //let distToScreen = 0.8;
         let aspectRatio = 16 / 9;
         const focalPlane = MeshBuilder.CreatePlane('focalPlane', {size: 1}, scene);
         focalPlane.scaling.copyFromFloats(2 * screenHalfHeight * aspectRatio, 2 * screenHalfHeight, 1);
@@ -173,48 +174,48 @@ export class App {
         focalPlane.visibility = 0.1;
         focalPlane.edgesColor = new Color4(0.5, 0.5, 1, 1);
 
-        function setProjection(cam: FreeCamera, camOffset: number, screenHalfHeight: number) {
-            const engine = cam.getEngine();
-            const canvas = engine.getRenderingCanvas();
-            if (canvas === null) {
-                throw new Error('Canvas is null');
-            }
+        //function setProjection(cam: FreeCamera, camOffset: number, screenHalfHeight: number) {
+            //const engine = cam.getEngine();
+            //const canvas = engine.getRenderingCanvas();
+            //if (canvas === null) {
+                //throw new Error('Canvas is null');
+            //}
 
-            // distance to the focal plane is the distance of the eye to the screen plane
-            const distToFocalPlane = Math.abs(cam.position.z);
+            //// distance to the focal plane is the distance of the eye to the screen plane
+            //const distToFocalPlane = Math.abs(cam.position.z);
 
-            cam.fov = 2 * Math.atan(screenHalfHeight / distToFocalPlane);
+            //cam.fov = 2 * Math.atan(screenHalfHeight / distToFocalPlane);
 
-            const projMat = Matrix.PerspectiveFovLH(cam.fov, aspectRatio, cam.minZ, cam.maxZ, 
-                engine.isNDCHalfZRange, cam.projectionPlaneTilt, engine.useReverseDepthBuffer);
-            projMat.addAtIndex(8, cam.position.x / (screenHalfHeight * aspectRatio));
-            projMat.addAtIndex(9, cam.position.y / screenHalfHeight);
-            cam._projectionMatrix.copyFrom(projMat);
+            //const projMat = Matrix.PerspectiveFovLH(cam.fov, aspectRatio, cam.minZ, cam.maxZ, 
+                //engine.isNDCHalfZRange, cam.projectionPlaneTilt, engine.useReverseDepthBuffer);
+            //projMat.addAtIndex(8, cam.position.x / (screenHalfHeight * aspectRatio));
+            //projMat.addAtIndex(9, cam.position.y / screenHalfHeight);
+            //cam._projectionMatrix.copyFrom(projMat);
 
-            return projMat;
-        }
+            //return projMat;
+        //}
 
-        function updateFrustum(cam: FreeCamera, frustum: Mesh, eyePos: number) {
-            const projMat = setProjection(cam, eyePos, screenHalfHeight);
-            const invProjMat = projMat.clone().invert();
-            const invViewMat = cam.getViewMatrix().clone().invert();
+        //function updateFrustum(cam: FreeCamera, frustum: Mesh, eyePos: number) {
+            //const projMat = setProjection(cam, eyePos, screenHalfHeight);
+            //const invProjMat = projMat.clone().invert();
+            //const invViewMat = cam.getViewMatrix().clone().invert();
 
-            const positions = frustum.getVerticesData('position');
+            //const positions = frustum.getVerticesData('position');
 
-            if (positions) {
-                const newPositions = new Float32Array(positions.length);
-                for (let i = 0; i < positions.length; i += 3) {
-                    const pos = new Vector3(positions[i], positions[i + 1], positions[i + 2]);
-                    const worldPos = Vector3.TransformCoordinates(pos, invProjMat);
-                    const viewPos = Vector3.TransformCoordinates(worldPos, invViewMat);
-                    newPositions[i] = viewPos.x;
-                    newPositions[i + 1] = viewPos.y;
-                    newPositions[i + 2] = viewPos.z;
-                }
+            //if (positions) {
+                //const newPositions = new Float32Array(positions.length);
+                //for (let i = 0; i < positions.length; i += 3) {
+                    //const pos = new Vector3(positions[i], positions[i + 1], positions[i + 2]);
+                    //const worldPos = Vector3.TransformCoordinates(pos, invProjMat);
+                    //const viewPos = Vector3.TransformCoordinates(worldPos, invViewMat);
+                    //newPositions[i] = viewPos.x;
+                    //newPositions[i + 1] = viewPos.y;
+                    //newPositions[i + 2] = viewPos.z;
+                //}
 
-                frustum.updateVerticesData('position', newPositions);
-            }
-        }
+                //frustum.updateVerticesData('position', newPositions);
+            //}
+        //}
 
         // Return the scene when it is ready
         return scene;
