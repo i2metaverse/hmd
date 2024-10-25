@@ -17,7 +17,7 @@ import {
     ArcRotateCamera,
     Color4,
     FreeCamera,
-    //Matrix,
+    Matrix,
     //Mesh
 } from "@babylonjs/core";
 
