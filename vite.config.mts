@@ -2,6 +2,8 @@
  * This is the Vite configuration file for the project.
  * - it is mts to explicitly indiate it should be processed as
  *   a ECMAScript module (and not a CommonJS module)
+ * - note that `base` needs to be set to the the path to the project 
+ *   when viewed through GitHub Pages URL
  */
 
 /// <reference types="vitest" />

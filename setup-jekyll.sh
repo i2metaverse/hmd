@@ -1,4 +1,9 @@
 #!/bin/bash
+# =============================================================================
+# Script Name: setup-jekyll.sh
+# Description: This script sets up a Jekyll project in the 'docs' Directory
+# Usage:       Run the script in the root directory of the project.
+# =============================================================================
 
 # Navigate to the docs directory
 cd docs || { echo "docs directory not found!"; exit 1; }

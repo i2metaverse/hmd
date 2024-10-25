@@ -1,7 +1,20 @@
 #!/bin/bash
+# =============================================================================
+# Script Name: decorate-html.sh
+# Description: This script navigates to the 'docs' directory and adds a custom 
+#              header to the top of 'index.html'
+# Usage:       Run the script in the root directory of the project.
+# =============================================================================
 
 # Navigate to the docs directory
-cd docs || { echo "docs directory not found!"; exit 1; }
+# - if directory exists, navigate to it
+# - create the directory if it doesn't exist
+if [ -d docs ]; then
+  cd docs
+else
+  mkdir -p docs
+  cd docs
+fi
 
 echo "Adding a header to index.html..."
 if [ -f index.html ]; then
