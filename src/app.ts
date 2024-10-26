@@ -18,7 +18,9 @@ import {
     Color4,
     FreeCamera,
     Matrix,
-    //Mesh
+    Mesh,
+    VertexBuffer,
+    Nullable
 } from "@babylonjs/core";
 
 // App class
@@ -78,7 +80,7 @@ export class App {
         scene.clearColor.set(0.15, 0.15, 0.15, 1);
 
         // Create a arcRotate camera and attach it to the canvas
-        const camera = new ArcRotateCamera('camera', 5, 1, 15, new Vector3(0, 0, 0), scene);
+        const camera = new ArcRotateCamera('camera', 5, 1, 20, new Vector3(0, 0, 0), scene);
         camera.attachControl(this.engine.getRenderingCanvas(), true);
 
         // create a hemispheric light
@@ -86,6 +88,7 @@ export class App {
         hemiLight.intensity = 0.6;
 
         // create a directional light that will cast shadows
+        // TODO: create keys to move light
         const dirLight = new DirectionalLight('dirLight', new Vector3(0, -1, -1), scene);
         dirLight.position = new Vector3(0, 10, 10);
         dirLight.intensity = 0.3;
@@ -127,23 +130,16 @@ export class App {
         const ground = CreateGround('ground', {width: 10, height: 10}, scene);
         ground.material = mat2;
         ground.receiveShadows = true;
-
-        // Ensure shadows are dynamic
-        scene.registerBeforeRender(function () {
-            // Update the light to be above the camera, but offset in the Y-axis
-            dirLight.position.x = camera.position.x;
-            dirLight.position.y = camera.position.y + 10; // Always keep the light 10 units above the camera
-            dirLight.position.z = camera.position.z;
-        });
+        ground.position.y = -1;
 
         //////////////
         // Frustums //
-        const frustumL = MeshBuilder.CreateBox('frustumL', {size: 2}, scene);
-        frustumL.position = new Vector3(-5, 2, 0);
-        frustumL.enableEdgesRendering();
-        frustumL.edgesWidth = 1;
-        frustumL.edgesColor = new Color4(1, 0.5, 0.5, 1);
-        frustumL.visibility = 0.1;
+        //const frustumL = MeshBuilder.CreateBox('frustumL', {size: 2}, scene);
+        //frustumL.position = new Vector3(-5, 2, 0);
+        //frustumL.enableEdgesRendering();
+        //frustumL.edgesWidth = 1;
+        //frustumL.edgesColor = new Color4(1, 0.5, 0.5, 1);
+        //frustumL.visibility = 0.1;
 
         //try {
             //const positionData = frustumL.getPositionData();
@@ -159,13 +155,17 @@ export class App {
 
         // Create a camera for the left eye
         const camL = new FreeCamera('camL', new Vector3(-5, 2, 0), scene);
-        camL.minZ = 0.1;
-        camL.maxZ = 2;
+        camL.minZ = 2;
+        camL.maxZ = 30;
         camL.projectionPlaneTilt = 0.0;
 
+        // Creata a mesh to represent the left eye
+        const eyeL = MeshBuilder.CreateSphere('eyeL', {diameter: 0.8}, scene);
+        eyeL.parent = camL;
+
         // Create focal plane
-        let screenHalfHeight = 0.17;
-        //let distToScreen = 0.8;
+        let screenHalfHeight = 0.5;
+        let distToScreen = 8;
         let aspectRatio = 16 / 9;
         const focalPlane = MeshBuilder.CreatePlane('focalPlane', {size: 1}, scene);
         focalPlane.scaling.copyFromFloats(2 * screenHalfHeight * aspectRatio, 2 * screenHalfHeight, 1);
@@ -174,48 +174,226 @@ export class App {
         focalPlane.visibility = 0.1;
         focalPlane.edgesColor = new Color4(0.5, 0.5, 1, 1);
 
-        //function setProjection(cam: FreeCamera, camOffset: number, screenHalfHeight: number) {
-            //const engine = cam.getEngine();
-            //const canvas = engine.getRenderingCanvas();
-            //if (canvas === null) {
-                //throw new Error('Canvas is null');
-            //}
+        /**
+         * Set the projection matrix for the camera.
+         * @param cam The camera to set the projection for.
+         * @param camOffset The camera position in local space.
+         * @param screenHalfHeight The half height of the screen.
+         * @returns The projection matrix.
+         * @remarks This function sets the projection matrix for the camera.
+         */
+        function setProjection(cam: FreeCamera, camOffset: Vector3, screenHalfHeight: number) {
+            // get the engine from the camera
+            const engine = cam.getEngine();
 
-            //// distance to the focal plane is the distance of the eye to the screen plane
-            //const distToFocalPlane = Math.abs(cam.position.z);
+            // set the camera's position to the offset
+            cam.position.x = camOffset.x;
+            cam.position.y = camOffset.y;
+            cam.position.z = -Math.abs(camOffset.z);
 
-            //cam.fov = 2 * Math.atan(screenHalfHeight / distToFocalPlane);
+            // distance to the focal plane is calculated as the absolute value of the 
+            // camera's z position
+            const distToFocalPlane = Math.abs(cam.position.z);
 
-            //const projMat = Matrix.PerspectiveFovLH(cam.fov, aspectRatio, cam.minZ, cam.maxZ, 
-                //engine.isNDCHalfZRange, cam.projectionPlaneTilt, engine.useReverseDepthBuffer);
-            //projMat.addAtIndex(8, cam.position.x / (screenHalfHeight * aspectRatio));
-            //projMat.addAtIndex(9, cam.position.y / screenHalfHeight);
-            //cam._projectionMatrix.copyFrom(projMat);
+            // calculate the field of view based on the screen half height and the distance
+            cam.fov = 2 * Math.atan(screenHalfHeight / distToFocalPlane);
 
-            //return projMat;
-        //}
+            // calculate the projection matrix
+            const projMat = Matrix.PerspectiveFovLH(cam.fov, aspectRatio, cam.minZ, cam.maxZ, 
+                engine.isNDCHalfZRange, cam.projectionPlaneTilt, engine.useReverseDepthBuffer);
 
-        //function updateFrustum(cam: FreeCamera, frustum: Mesh, eyePos: number) {
-            //const projMat = setProjection(cam, eyePos, screenHalfHeight);
-            //const invProjMat = projMat.clone().invert();
-            //const invViewMat = cam.getViewMatrix().clone().invert();
+            // add the camera offset to the projection matrix
+            // - this is done by adding the x and y position of the camera to the 8th and 9th
+            //   elements of the projection matrix
+            // - the 8th and 9th elements of the projection matrix are the x and y components
+            // - starting from the first element, the elements refer to the following:
+            //   0  1  2  3
+            //   4  5  6  7
+            //   8  9  10 11
+            //   12 13 14 15
+            projMat.addAtIndex(8, cam.position.x / (screenHalfHeight * aspectRatio));
+            projMat.addAtIndex(9, cam.position.y / screenHalfHeight);
 
-            //const positions = frustum.getVerticesData('position');
+            // finally set camera's projection matrix to the new projection matrix
+            cam._projectionMatrix.copyFrom(projMat);
 
-            //if (positions) {
-                //const newPositions = new Float32Array(positions.length);
-                //for (let i = 0; i < positions.length; i += 3) {
-                    //const pos = new Vector3(positions[i], positions[i + 1], positions[i + 2]);
-                    //const worldPos = Vector3.TransformCoordinates(pos, invProjMat);
-                    //const viewPos = Vector3.TransformCoordinates(worldPos, invViewMat);
-                    //newPositions[i] = viewPos.x;
-                    //newPositions[i + 1] = viewPos.y;
-                    //newPositions[i + 2] = viewPos.z;
-                //}
+            return projMat;
+        }
+
+        /**
+         * Update the frustum mesh to match the camera's frustum.
+         * @param cam The camera to update the frustum for.
+         * @param frustum The frustum mesh to update.
+         * @param eyePos The offset of the camera from the center.
+         * @remarks This function updates the frustum mesh to match the camera's frustum.
+         *          The frustum mesh is updated by transforming the frustum mesh's vertices
+         *          to the view space of the camera.
+         */
+        function updateFrustum(cam: FreeCamera, frustum: Mesh, eyePos: Vector3) {
+            // get the projection matrix
+            const projMat = setProjection(cam, eyePos, screenHalfHeight);
+
+            // get the inverse of the projection matrix
+            const invProjMat = projMat.clone().invert();
+
+            // get the inverse of the view matrix
+            const invViewMat = cam.getViewMatrix().clone().invert();
+
+            // get the positions of the frustum mesh
+            const positions = frustum.getVerticesData('position');
+
+            // transform the positions to view space using the matrices above
+            // and set the new positions as the new vertices of the frustum mesh
+            if (positions) {
+                const newPositions = new Float32Array(positions.length);
+                for (let i = 0; i < positions.length; i += 3) {
+                    const pos = new Vector3(positions[i], positions[i + 1], positions[i + 2]);
+                    const worldPos = Vector3.TransformCoordinates(pos, invProjMat);
+                    const viewPos = Vector3.TransformCoordinates(worldPos, invViewMat);
+                    newPositions[i] = viewPos.x;
+                    newPositions[i + 1] = viewPos.y;
+                    newPositions[i + 2] = viewPos.z;
+                }
 
                 //frustum.updateVerticesData('position', newPositions);
-            //}
-        //}
+                frustum.setVerticesData(VertexBuffer.PositionKind, newPositions);
+            }
+        }
+
+        /**
+         * Calculate the corners of the frustum in world space.
+         * @param cam The camera to calculate the frustum corners for.
+         * @returns The corners of the frustum in world space.
+         * @remarks This function calculates the corners of the frustum in world space.
+         *         The corners are calculated by transforming the corners of the frustum
+         *         in view space to world space.
+         *         The corners are calculated for both the near and far planes.
+         */
+        function calculateFrustumCorners(cam: FreeCamera) {
+            const aspectRatio = cam.getEngine().getAspectRatio(cam);
+            const nearPlane = cam.minZ;
+            const farPlane = cam.maxZ;
+            const fov = cam.fov;
+
+            const tanFov = Math.tan(fov / 2);
+
+            // Near plane dimensions
+            const nearHeight = 2 * tanFov * nearPlane;
+            const nearWidth = nearHeight * aspectRatio;
+
+            // Far plane dimensions
+            const farHeight = 2 * tanFov * farPlane;
+            const farWidth = farHeight * aspectRatio;
+
+            const viewMatrix = cam.getViewMatrix();
+            const inverseViewMatrix = Matrix.Invert(viewMatrix);
+
+            // Corners in view space
+            const corners = [
+                // Near plane
+                new Vector3(-nearWidth / 2, nearHeight / 2, nearPlane),   // Top Left
+                new Vector3(nearWidth / 2, nearHeight / 2, nearPlane),    // Top Right
+                new Vector3(-nearWidth / 2, -nearHeight / 2, nearPlane),  // Bottom Left
+                new Vector3(nearWidth / 2, -nearHeight / 2, nearPlane),   // Bottom Right
+
+                // Far plane
+                new Vector3(-farWidth / 2, farHeight / 2, farPlane),      // Top Left
+                new Vector3(farWidth / 2, farHeight / 2, farPlane),       // Top Right
+                new Vector3(-farWidth / 2, -farHeight / 2, farPlane),     // Bottom Left
+                new Vector3(farWidth / 2, -farHeight / 2, farPlane)       // Bottom Right
+            ];
+
+            // Transform corners to world space
+            return corners.map(corner => Vector3.TransformCoordinates(corner, inverseViewMatrix));
+        }
+
+        // Create lines to represent the frustum box
+        function createFrustumLines(scene: Nullable<Scene> | undefined, camera: FreeCamera) {
+            const corners = calculateFrustumCorners(camera);
+
+            const lines = [];
+
+            // Connect near plane
+            lines.push(
+                [corners[0], corners[1]], 
+                [corners[1], corners[3]], 
+                [corners[3], corners[2]], 
+                [corners[2], corners[0]]);
+            
+            // Connect far plane
+            lines.push(
+                [corners[4], corners[5]], 
+                [corners[5], corners[7]], 
+                [corners[7], corners[6]],
+                [corners[6], corners[4]]);
+
+            // Connect near and far planes
+            lines.push(
+                [corners[0], corners[4]], 
+                [corners[1], corners[5]], 
+                [corners[2], corners[6]], 
+                [corners[3], corners[7]]);
+
+            return MeshBuilder.CreateLineSystem("frustum", { lines }, scene);
+        }
+
+        function updateFrustumLines(frustum: Mesh, camera: FreeCamera) {
+
+            // calcuate new corners
+            const corners = calculateFrustumCorners(camera);
+
+            // get current frustum lines
+            const linesVertices = frustum.getVerticesData('position');
+
+            // Define the mapping of `linesVertices` indices to `corners` indices
+            const indexMapping = [
+                // near plane
+                [0, 0], [3, 1], [6, 1], [9, 3], [12, 3], [15, 2], [18, 2], [21, 0],
+
+                // far plane
+                [24, 4], [27, 5], [30, 5], [33, 7], [36, 7], [39, 6], [42, 6], [45, 4],
+
+                // near to far plane
+                [48, 0], [51, 4], [54, 1], [57, 5], [60, 2], [63, 6], [66, 3], [69, 7]
+            ];
+
+            // Update frustum lines
+            if (linesVertices) {
+                indexMapping.forEach(([lineIndex, cornerIndex]) => {
+                    linesVertices[lineIndex] = corners[cornerIndex].x;
+                    linesVertices[lineIndex + 1] = corners[cornerIndex].y;
+                    linesVertices[lineIndex + 2] = corners[cornerIndex].z;
+                });
+
+                // Update the frustum mesh with the new lines
+                frustum.setVerticesData(VertexBuffer.PositionKind, linesVertices);
+            }
+        }
+
+        // Create a box to represent the frustum
+        //const frustumBox = createFrustumBox(scene, camL);
+        const frustumLines = createFrustumLines(scene, camL);
+
+        // Update the frustum mesh for the left eye
+        const eyePosL = new Vector3(0, 2, 0);
+        let elapsedSecs = 0.0;
+        scene.onBeforeRenderObservable.add(() => {
+            // move the eye position in a sine wave oscillation to show changes in the frustum
+            elapsedSecs += scene.getEngine().getDeltaTime() / 1000;
+            eyePosL.x = Math.sin(elapsedSecs * 0.1) * 1;
+            eyePosL.z = -distToScreen;
+
+            // update camera position to match the eye position
+            camL.position.copyFrom(eyePosL);
+            
+            // update the frustum mesh for the left eye
+            //updateFrustum(camL, frustumL, eyePosL);
+            updateFrustumLines(frustumLines, camL);
+
+            // refresh the scene
+            //frustumL.disableEdgesRendering();
+            //frustumL.enableEdgesRendering();
+        });
 
         // Return the scene when it is ready
         return scene;
