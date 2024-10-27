@@ -20,8 +20,38 @@ import {
     Matrix,
     Mesh,
     VertexBuffer,
-    Nullable
+    Nullable,
+    Vector4,
+    Viewport,
+    Camera
 } from "@babylonjs/core";
+
+/**
+ * The parameters for the VR HMD.
+ * - TODO: think about whether eyeRelief should be > f so that the 
+ *   virtual image is on the same side as the object
+ * - Note that Cardboard 2.0's params are:
+ *   f: 40mm
+ *   ipd: 64mm
+ *   eyeRelief: 18mm
+ *   distLens2Display: 39mm
+ *   displayWidth: 120.96mm
+ *   displayHeight: 68.03mm
+ */
+const hmdParams = {
+    f: 0.4,
+    ipd: 0.68,
+    eyeRelief: 0.18,
+    distLens2Display: 0.39,
+    displayWidth: 1.2096,
+    displayHeight: 0.6803,
+    get aspectRatio() {
+        return this.displayWidth / this.displayHeight;
+    },
+    get distEye2Display() {
+        return this.eyeRelief + this.distLens2Display;
+    }
+}
 
 // App class
 // - this is the main class for the web application
@@ -57,18 +87,18 @@ export class App {
      * The HMD will be a transparent box with a display screen and two lenses inside.
      * The parameters of the HMD will be adjustable through sliders:
      * - ipd: interpupillary distance
-     * - d_eye: eye relief
-     * - d_disp: distance from the display screen to the lenses
-     * - w_disp: width of the display screen
-     * - h_disp: height of the display screen
+     * - eyeRelief: eye relief
+     * - distLens2Display: distance from the display screen to the lenses
+     * - displayWidth: width of the display screen
+     * - displayHeight: height of the display screen
      * - f: focal length of the lenses
      *
      * Some resultant calculated parameters will be displayed:
-     * - d_virt: distance from the lenses to the virtual image
-     * - w_virt_l: width of the virtual image for the left eye
-     * - h_virt_l: height of the virtual image for the left eye
-     * - w_virt_r: width of the virtual image for the right eye
-     * - h_virt_r: height of the virtual image for the right eye
+     * - distLens2Img: distance from the lenses to the virtual image
+     * - imgWidthL: width of the virtual image for the left eye
+     * - imgHeightL: height of the virtual image for the left eye
+     * - imgWidthR: width of the virtual image for the right eye
+     * - imgHeightR: height of the virtual image for the right eye
      *
      * The left/right frustums will dynamically adjust based on the parameters of the HMD.
      *
@@ -83,6 +113,9 @@ export class App {
         const camera = new ArcRotateCamera('camera', 5, 1, 20, new Vector3(0, 0, 0), scene);
         camera.attachControl(this.engine.getRenderingCanvas(), true);
 
+        /////////////////
+        // SCENE SETUP //
+        
         // create a hemispheric light
         const hemiLight = new HemisphericLight('hemiLight', new Vector3(0, 1, 0), scene);
         hemiLight.intensity = 0.6;
@@ -90,17 +123,26 @@ export class App {
         // create a directional light that will cast shadows
         // TODO: create keys to move light
         const dirLight = new DirectionalLight('dirLight', new Vector3(0, -1, -1), scene);
-        dirLight.position = new Vector3(0, 10, 10);
+        dirLight.position = new Vector3(0, 6, 0);
         dirLight.intensity = 0.3;
         dirLight.shadowEnabled = true;
         dirLight.shadowMinZ = 1;
         dirLight.shadowMaxZ = 100;
 
+        // create a cone to represent the light
+        const cone = MeshBuilder.CreateCylinder('cone', {diameterTop: 0, diameterBottom: 0.5, height: 0.5}, scene);
+        cone.position = dirLight.position;
+        cone.rotation = new Vector3(Math.PI, 0, 0);
+        const coneMat = new StandardMaterial('coneMat', scene);
+        coneMat.diffuseColor.set(1, 1, 0);
+        coneMat.alpha = 0.8;
+        cone.material = coneMat;
+
         // Create shadow generator for the directional light
         const shadowGenerator = new ShadowGenerator(1024, dirLight);
         shadowGenerator.useBlurExponentialShadowMap = true;
 
-        // Create grid material with finer grid lines
+        // Create materials to reuse
         const mat1 = new StandardMaterial('red', scene);
         mat1.diffuseColor.set(1, .3, .5);
         const mat2 = new StandardMaterial('green', scene);
@@ -108,7 +150,7 @@ export class App {
         const mat3 = new StandardMaterial('blue', scene);
         mat3.diffuseColor.set(.3, .5, 1);
 
-        // Create a box with the grid material and shift it up and left, and rotate
+        // Create a scene with a box, torus knot, and ground plane
         const box = MeshBuilder.CreateBox('box', {size: 2}, scene);
         box.position.y = 2;
         box.position.x = -2;
@@ -116,8 +158,6 @@ export class App {
         box.material = mat1;
         box.receiveShadows = true;
         shadowGenerator.addShadowCaster(box);
-
-        // Create a cone with the grid material and shift it up and right
         const tor = MeshBuilder.CreateTorusKnot('tor', 
             {radius: 1, tube: 0.35, radialSegments: 100, tubularSegments: 20}, scene);
         tor.position.y = 2;
@@ -125,139 +165,212 @@ export class App {
         tor.material = mat3;
         tor.receiveShadows = true;
         shadowGenerator.addShadowCaster(tor);
-
-        // Create a ground plane with the grid material
         const ground = CreateGround('ground', {width: 10, height: 10}, scene);
         ground.material = mat2;
         ground.receiveShadows = true;
         ground.position.y = -1;
 
-        //////////////
-        // Frustums //
-        //const frustumL = MeshBuilder.CreateBox('frustumL', {size: 2}, scene);
-        //frustumL.position = new Vector3(-5, 2, 0);
-        //frustumL.enableEdgesRendering();
-        //frustumL.edgesWidth = 1;
-        //frustumL.edgesColor = new Color4(1, 0.5, 0.5, 1);
-        //frustumL.visibility = 0.1;
-
-        //try {
-            //const positionData = frustumL.getPositionData();
-            //const initPositions = new Float32Array(positionData);
-            //// Continue processing with initPositions...
-        //} catch (error) {
-            //console.error(
-                //"An error occurred while initializing positions:",
-                //error
-            //);
-            //// Handle the error case, e.g., set default values or take alternative actions.
-        //}
-
+        //////////////////
+        // VR HMD SETUP //
+        
+        // init the eye positions in the HMD
+        const eyePosL = new Vector3(0, 2, -5);
+        
         // Create a camera for the left eye
         const camL = new FreeCamera('camL', new Vector3(-5, 2, 0), scene);
         camL.minZ = 2;
         camL.maxZ = 30;
         camL.projectionPlaneTilt = 0.0;
 
-        // Creata a mesh to represent the left eye
-        const eyeL = MeshBuilder.CreateSphere('eyeL', {diameter: 0.8}, scene);
+        // Create a mesh to represent the left eye
+        const eyeL = MeshBuilder.CreateSphere('eyeL', {diameter: 0.2}, scene);
         eyeL.parent = camL;
 
-        // Create focal plane
-        let screenHalfHeight = 0.5;
-        let distToScreen = 8;
-        let aspectRatio = 16 / 9;
-        const focalPlane = MeshBuilder.CreatePlane('focalPlane', {size: 1}, scene);
-        focalPlane.scaling.copyFromFloats(2 * screenHalfHeight * aspectRatio, 2 * screenHalfHeight, 1);
-        focalPlane.enableEdgesRendering();
-        focalPlane.edgesWidth = 1;
-        focalPlane.visibility = 0.1;
-        focalPlane.edgesColor = new Color4(0.5, 0.5, 1, 1);
+        // make the eye translucent
+        const matEye = new StandardMaterial('eyeMatL', scene);
+        matEye.diffuseColor.set(0.5, 0.5, 0.5);
+        matEye.alpha = 0.5;
+        eyeL.material = matEye;
+
+        // Create display mesh for the HMD
+        const display = MeshBuilder.CreateBox('display', 
+            {width: hmdParams.displayWidth, height: hmdParams.displayHeight, depth: 0.05}, scene);
+        display.enableEdgesRendering();
+        display.edgesWidth = 1;
+        display.visibility = 0.3;
+        display.edgesColor = new Color4(0.5, 0.5, 1, 1);
+
+        // Create lens mesh for the HMD, rotated to face the display
+        const lensL = MeshBuilder.CreateCylinder('lens', {diameter: 1, height: 0.05, tessellation: 24}, scene);
+        lensL.rotation.x = Math.PI / 2;
+        lensL.enableEdgesRendering();
+        lensL.edgesWidth = 1;
+        lensL.visibility = 0.3;
+        lensL.edgesColor = new Color4(0.5, 0.5, 1, 1);
 
         /**
-         * Set the projection matrix for the camera.
-         * @param cam The camera to set the projection for.
-         * @param camOffset The camera position in local space.
-         * @param screenHalfHeight The half height of the screen.
-         * @returns The projection matrix.
-         * @remarks This function sets the projection matrix for the camera.
+         * Update the respective lens and display relative to the eye position
+         * @param eyePos The position of the eye to update the lens and display for
+         * @param lens The lens mesh to update
+         * @param display The display mesh to update
+         * @remarks This is called every frame to update the position of the lens and display
          */
-        function setProjection(cam: FreeCamera, camOffset: Vector3, screenHalfHeight: number) {
-            // get the engine from the camera
-            const engine = cam.getEngine();
-
-            // set the camera's position to the offset
-            cam.position.x = camOffset.x;
-            cam.position.y = camOffset.y;
-            cam.position.z = -Math.abs(camOffset.z);
-
-            // distance to the focal plane is calculated as the absolute value of the 
-            // camera's z position
-            const distToFocalPlane = Math.abs(cam.position.z);
-
-            // calculate the field of view based on the screen half height and the distance
-            cam.fov = 2 * Math.atan(screenHalfHeight / distToFocalPlane);
-
-            // calculate the projection matrix
-            const projMat = Matrix.PerspectiveFovLH(cam.fov, aspectRatio, cam.minZ, cam.maxZ, 
-                engine.isNDCHalfZRange, cam.projectionPlaneTilt, engine.useReverseDepthBuffer);
-
-            // add the camera offset to the projection matrix
-            // - this is done by adding the x and y position of the camera to the 8th and 9th
-            //   elements of the projection matrix
-            // - the 8th and 9th elements of the projection matrix are the x and y components
-            // - starting from the first element, the elements refer to the following:
-            //   0  1  2  3
-            //   4  5  6  7
-            //   8  9  10 11
-            //   12 13 14 15
-            projMat.addAtIndex(8, cam.position.x / (screenHalfHeight * aspectRatio));
-            projMat.addAtIndex(9, cam.position.y / screenHalfHeight);
-
-            // finally set camera's projection matrix to the new projection matrix
-            cam._projectionMatrix.copyFrom(projMat);
-
-            return projMat;
+        function updateLensDisplay(eyePos: Vector3, lens: Mesh, display: Mesh) {
+            lens.position.copyFrom(eyePos);
+            lens.position.z += hmdParams.eyeRelief;
+            display.position.copyFrom(eyePos);
+            display.position.z += hmdParams.eyeRelief + hmdParams.distLens2Display;
         }
 
         /**
-         * Update the frustum mesh to match the camera's frustum.
-         * @param cam The camera to update the frustum for.
-         * @param frustum The frustum mesh to update.
-         * @param eyePos The offset of the camera from the center.
-         * @remarks This function updates the frustum mesh to match the camera's frustum.
-         *          The frustum mesh is updated by transforming the frustum mesh's vertices
-         *          to the view space of the camera.
+         * Set the projection matrix for the camera representing an eye. Note that 
+         * this is done separately for each eye.
+         * @remarks This function sets the projection matrix for the camera using:
+         *         - the interpupillary distance (ipd)
+         *         - the distance from the lenses to the display screen (distLens2Display)
+         *         - the focal length of the lenses (f)
+         *         - the width of the display screen (displayWidth)
+         *         - the height of the display screen (displayHeight)
+         *         - the distance from the eye to the display (distEye2Display)
          */
-        function updateFrustum(cam: FreeCamera, frustum: Mesh, eyePos: Vector3) {
-            // get the projection matrix
-            const projMat = setProjection(cam, eyePos, screenHalfHeight);
+        function setProjection(camera: FreeCamera, eyePos: Vector3) {
+            // calculate magnification factor
+            // - note that if f < distLens2Display, then it will be -ve
+            // - else it will be +ve
+            // - when f = distLens2Display, the magFactor will be infinite
+            const magnification = hmdParams.f / (hmdParams.f - hmdParams.distLens2Display);
 
-            // get the inverse of the projection matrix
-            const invProjMat = projMat.clone().invert();
+            // calculate the distance from the lens to the virtual image
+            // - for HMD, the f needs to be > distLens2Display (or the object distance)
+            // - this results in a -ve value for distLens2Img 
+            //   which means the virtual image is on the same side as the object
+            // - this is similar to a magnifying glass (as opposed to a projector)
+            const distLens2Img = 1 / (1 / hmdParams.f - 1 / hmdParams.distLens2Display);
 
-            // get the inverse of the view matrix
-            const invViewMat = cam.getViewMatrix().clone().invert();
+            // calculate the full height of the virtual image for the particular eye
+            const imgHeight = hmdParams.displayHeight * magnification;
 
-            // get the positions of the frustum mesh
-            const positions = frustum.getVerticesData('position');
+            // calculate the width of the virtual image for the particular eye
+            const imgWidth = hmdParams.displayWidth * magnification;
+            
+            // calculate the distance from the eye to the virtual image
+            // - make distLens2Img abs for calculations
+            // - it is -ve in conceptual terms
+            const distEye2Img = hmdParams.eyeRelief + Math.abs(distLens2Img);
 
-            // transform the positions to view space using the matrices above
-            // and set the new positions as the new vertices of the frustum mesh
-            if (positions) {
-                const newPositions = new Float32Array(positions.length);
-                for (let i = 0; i < positions.length; i += 3) {
-                    const pos = new Vector3(positions[i], positions[i + 1], positions[i + 2]);
-                    const worldPos = Vector3.TransformCoordinates(pos, invProjMat);
-                    const viewPos = Vector3.TransformCoordinates(worldPos, invViewMat);
-                    newPositions[i] = viewPos.x;
-                    newPositions[i + 1] = viewPos.y;
-                    newPositions[i + 2] = viewPos.z;
-                }
+            // calculate the near plane distance
+            // - this should start at minimum the position of the display
+            // - TODO: perhaps add a small offset to ensure the near plane is not too close
+            const near = hmdParams.distEye2Display;
 
-                //frustum.updateVerticesData('position', newPositions);
-                frustum.setVerticesData(VertexBuffer.PositionKind, newPositions);
-            }
+            // calculate the far plane distance
+            // - this does not have to be exact, but should be far enough to encompass the scene
+            const far = near + 10;
+
+            // set remaining params for projection
+            // - the fov is the vertical fov
+            const fov = 2 * Math.atan((imgHeight / 2) / distEye2Img);
+            const minZ = near;
+            const maxZ = far;
+
+            // DEBUG: show the values
+            console.log('BEFORE updating camera projection matrix:', 
+                camera.getProjectionMatrix().toString());
+
+            // calculate the left, right, top, and bottom values for the off-axis projection
+            const top = hmdParams.distEye2Display * imgHeight / (2 * distEye2Img);
+            const bottom = -top;
+            const imgWidthNasal = magnification * hmdParams.ipd / 2;
+            const imgWidthTemporal = magnification * (hmdParams.displayWidth - hmdParams.ipd) / 2;
+            const right = hmdParams.distEye2Display * imgWidthNasal / distEye2Img;
+            const left = -hmdParams.distEye2Display * imgWidthTemporal / distEye2Img;
+
+            // manually create the off-axis projection matrix
+            // - the built-in Babylon.js function does not allow for off-axis projection
+            // - this is a manual calculation of the projection Matrix
+            // - note that the values are not updated in the camera object
+            const projMat = Matrix.FromValues(
+                2 * near / (right - left), 0, (right + left) / (right - left), 0,
+                0, 2 * near / (top - bottom), (top + bottom) / (top - bottom), 0,
+                0, 0, -(far + near) / (far - near), -2 * far * near / (far - near),
+                0, 0, -1, 0
+            );
+
+            // this built-in function does not allow for off-axis projection
+            // - the frustum is symmetrical both horizontally and vertically
+            //const projMat = Matrix.PerspectiveFovLH(fov, hmdParams.aspectRatio, minZ, maxZ);
+            
+            // apply the new projection matrix to the camera
+            camera.freezeProjectionMatrix(projMat);
+            //cam._projectionMatrix.copyFrom(projMat); // alternative
+            //cam._projectionMatrix = projMat; // alternative
+
+            // MANUALLY set the values to the simulated camera where possible
+            // TODO: very odd that the values are not updated no matter which of the 
+            //       above methods are used
+            //       on the canvas size, so it is not settable
+            //camera.minZ = minZ;
+            //camera.maxZ = maxZ;
+            //camera.fov = fov;
+
+            camera.mode = Camera.PERSPECTIVE_CAMERA;
+
+            // Set the camera to "dirty" so Babylon.js knows to use this new matrix
+            camera.markAsDirty();
+
+            // affect all changes in camera to take effect
+            camera.unfreezeProjectionMatrix()
+
+            // DEBUG: show values
+            console.log('AFTER updating camera projection matrix:', 
+                    camera.getProjectionMatrix().toString());
+            //
+            // DEBUG: show the values
+            //console.log('ipd: ', ipd, 'eyeRelief: ', eyeRelief, 'f: ', f, 
+                //'distLens2Display: ', distLens2Display , 'displayWidth: ',
+                //displayWidth, 'displayHeight: ', displayHeight);
+            //console.log('eyePos:', eyePos.toString());
+            //console.log('fov:', camera.fov, 'minZ:', camera.minZ, 'maxZ:', camera.maxZ, 
+                //'aspectRatio:', aspectRatio);
+            //console.log('magFactor:', magFactor);
+            //console.log('imgWidth:', imgWidth, 'imgHeight:', imgHeight);
+            //console.log('distEye2Display:', distEye2Display, 'distEye2Img:', 
+                //distEye2Img, 'distLens2Img:', distLens2Img);
+            //console.log('near:', near, 'far:', far);
+
+            // log above in nice format
+            console.log('----------------------------------');
+            console.log('HMD PARAMETERS');
+            console.log('ipd:', hmdParams.ipd);
+            console.log('eyeRelief:', hmdParams.eyeRelief);
+            console.log('f:', hmdParams.f);
+            console.log('distLens2Display:', hmdParams.distLens2Display);
+            console.log('distEye2Display:', hmdParams.distEye2Display);
+            console.log('displayWidth:', hmdParams.displayWidth);
+            console.log('displayHeight:', hmdParams.displayHeight);
+            console.log('aspectRatio:', hmdParams.aspectRatio);
+            console.log('----------------------------------');
+            console.log('EYE POSITION');
+            console.log('eyePos:', eyePos.toString());
+            console.log('----------------------------------');
+            console.log('CALCULATED OTHER VALUES');
+            console.log('magFactor:', magnification);
+            console.log('imgWidth:', imgWidth);
+            console.log('imgHeight:', imgHeight);
+            console.log('distLens2Img:', distLens2Img);
+            console.log('distEye2Img:', distEye2Img);
+            console.log('----------------------------------');
+            console.log('NEAR AND FAR PLANES');
+            console.log('near:', near);
+            console.log('far:', far);
+            console.log('----------------------------------');
+            console.log('CAMERA PARAMS');
+            console.log('fov:', camera.fov);
+            console.log('minZ:', camera.minZ);
+            console.log('maxZ:', camera.maxZ);
+
+            // return the projection Matrix
+            return projMat;
         }
 
         /**
@@ -270,20 +383,18 @@ export class App {
          *         The corners are calculated for both the near and far planes.
          */
         function calculateFrustumCorners(cam: FreeCamera) {
-            const aspectRatio = cam.getEngine().getAspectRatio(cam);
             const nearPlane = cam.minZ;
             const farPlane = cam.maxZ;
             const fov = cam.fov;
-
             const tanFov = Math.tan(fov / 2);
 
             // Near plane dimensions
             const nearHeight = 2 * tanFov * nearPlane;
-            const nearWidth = nearHeight * aspectRatio;
+            const nearWidth = nearHeight * hmdParams.aspectRatio;
 
             // Far plane dimensions
             const farHeight = 2 * tanFov * farPlane;
-            const farWidth = farHeight * aspectRatio;
+            const farWidth = farHeight * hmdParams.aspectRatio;
 
             const viewMatrix = cam.getViewMatrix();
             const inverseViewMatrix = Matrix.Invert(viewMatrix);
@@ -309,6 +420,7 @@ export class App {
 
         // Create lines to represent the frustum box
         function createFrustumLines(scene: Nullable<Scene> | undefined, camera: FreeCamera) {
+
             const corners = calculateFrustumCorners(camera);
 
             const lines = [];
@@ -338,6 +450,8 @@ export class App {
         }
 
         function updateFrustumLines(frustum: Mesh, camera: FreeCamera) {
+            // DEBUG: show camera frustum parameters
+            //console.log('updateFrustumLines: Camera parameters:', camera.fov, camera.minZ, camera.maxZ);
 
             // calcuate new corners
             const corners = calculateFrustumCorners(camera);
@@ -375,16 +489,21 @@ export class App {
         const frustumLines = createFrustumLines(scene, camL);
 
         // Update the frustum mesh for the left eye
-        const eyePosL = new Vector3(0, 2, 0);
         let elapsedSecs = 0.0;
+        let animSpeed = 2.0;
         scene.onBeforeRenderObservable.add(() => {
             // move the eye position in a sine wave oscillation to show changes in the frustum
             elapsedSecs += scene.getEngine().getDeltaTime() / 1000;
-            eyePosL.x = Math.sin(elapsedSecs * 0.1) * 1;
-            eyePosL.z = -distToScreen;
+            eyePosL.x = Math.sin(elapsedSecs * 0.1) * animSpeed;
+
+            // update the lens and display meshes for the left eye
+            updateLensDisplay(eyePosL, lensL, display);
 
             // update camera position to match the eye position
             camL.position.copyFrom(eyePosL);
+
+            // update the projection matrix for the left eye
+            // setProjection(camL, eyePosL);
             
             // update the frustum mesh for the left eye
             //updateFrustum(camL, frustumL, eyePosL);
@@ -394,6 +513,9 @@ export class App {
             //frustumL.disableEdgesRendering();
             //frustumL.enableEdgesRendering();
         });
+
+        // DEBUG
+        setProjection(camL, eyePosL);
 
         // Return the scene when it is ready
         return scene;
