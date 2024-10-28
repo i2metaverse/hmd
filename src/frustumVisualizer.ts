@@ -278,4 +278,12 @@ export class FrustumVisualizer {
             );
         }
     }
+
+    /**
+     * Set visibility of the frustum mesh.
+     * @param isVisible The visibility of the frustum mesh.
+     */
+    public setVisibility(isVisible: boolean) {
+        this.frustumMesh.isVisible = isVisible;
+    }
 }

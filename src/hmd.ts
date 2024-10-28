@@ -14,6 +14,7 @@ import {
     Color4,
     MeshBuilder,
     Mesh,
+    Observable,
 } from "@babylonjs/core";
 
 export class HMD {
@@ -36,7 +37,7 @@ export class HMD {
      */
     pos = new Vector3(0, 2, -5);
     f = .4;
-    ipd = .88;
+    ipd = .9;
     eyeRelief = .18;
     distLens2Display = .39;
     displayWidth = 1.2096;
@@ -45,6 +46,35 @@ export class HMD {
     lensDiameter = .34;
     lensDepth = .05;
     eyeDiameter = .15;
+
+    // Calculated values
+    distEye2Display = this.eyeRelief + this.distLens2Display
+    magnification = this.f / (this.f - this.distLens2Display);
+    imgHeight = this.displayHeight * this.magnification;
+    distLens2Img = 1 / (1 / this.f - 1 / this.distLens2Display);
+    distEye2Img = Math.abs(this.distLens2Img) + this.eyeRelief;
+    near = this.distEye2Display;
+    far = this.near + 5;
+    fovVertical = 2 * Math.atan((this.imgHeight / 2) / this.distEye2Img);
+    fovHorizontal = Math.atan((this.magnification * this.ipd / 2) / this.distEye2Img) 
+        + Math.atan((this.magnification * (this.displayWidth - this.ipd) / 2) / this.distEye2Img);
+    aspectRatio = this.displayWidth / this.displayHeight;
+
+    // Calculated values for the off-axis projection
+    top = this.near * this.imgHeight / (2 * this.distEye2Img);
+    bottom = -this.top;
+    imgWidthNasal = this.magnification * this.ipd / 2;
+    imgWidthTemporal = this.magnification * (this.displayWidth - this.ipd) / 2;
+
+    rightForLeftEye = this.distEye2Display * this.imgWidthNasal / this.distEye2Img;
+    leftForLeftEye = -this.distEye2Display * this.imgWidthTemporal / this.distEye2Img
+
+    rightForRightEye = this.distEye2Display * this.imgWidthTemporal / this.distEye2Img;
+    leftForRightEye = -this.distEye2Display * this.imgWidthNasal / this.distEye2Img;
+
+    // cache the projection matrix
+    projMatL = Matrix.Identity();
+    projMatR = Matrix.Identity();
 
     // cameras for the left and right eyes
     private camL: FreeCamera;
@@ -60,27 +90,58 @@ export class HMD {
     private eyeR!: Mesh;
 
     /**
-     * Get the aspect ratio of the display screen.
-     * @returns The aspect ratio of the display screen.
-     */
-    get aspectRatio() {
-        return this.displayWidth / this.displayHeight;
-    }
-
-    /**
-     * Get the distance from the lenses to the virtual image.
-     * @returns The distance from the lenses to the virtual image.
-     */
-    get distEye2Display() {
-        return this.eyeRelief + this.distLens2Display;
-    }
-
-    /**
      * Create a world transform matrix for the HMD.
      * @returns The world transform matrix for the HMD.
      */
     get transformMatrix() {
         return Matrix.Translation(this.pos.x, this.pos.y, this.pos.z);
+    }
+
+    /**
+     * Create a list of the parameters for the HMD.
+     * @returns The list of parameters for the HMD 
+     *          that can be used in a for (let key in hmd.params) loop.
+     */
+    get displayParams() {
+        return {
+            //pos: this.pos,
+            f: this.f,
+            ipd: this.ipd,
+            eyeRelief: this.eyeRelief,
+            distLens2Display: this.distLens2Display,
+            displayWidth: this.displayWidth,
+            displayHeight: this.displayHeight,
+            //displayDepth: this.displayDepth,
+            //lensDiameter: this.lensDiameter,
+            //lensDepth: this.lensDepth,
+            //eyeDiameter: this.eyeDiameter,
+        };
+    }
+
+    /**
+     * Create a list of the calculated values for the HMD.
+     * @returns The list of calculated values for the HMD.
+     */
+    get displayCalculatedVals() {
+        return {
+            magnification: this.magnification,
+            imgHeight: this.imgHeight,
+            distLens2Img: this.distLens2Img,
+            distEye2Img: this.distEye2Img,
+            near: this.near,
+            far: this.far,
+            fovVertical: this.fovVertical,
+            fovHorizontal: this.fovHorizontal,
+            aspectRatio: this.aspectRatio,
+            top: this.top,
+            bottom: this.bottom,
+            imgWidthNasal: this.imgWidthNasal,
+            imgWidthTemporal: this.imgWidthTemporal,
+            leftForLeftEye: this.leftForLeftEye,
+            rightForLeftEye: this.rightForLeftEye,
+            leftForRightEye: this.leftForRightEye,
+            rightForRightEye: this.rightForRightEye,
+        };
     }
 
     /**
@@ -120,10 +181,17 @@ export class HMD {
      */
     constructor(scene: Scene) {
         this.scene = scene;
+        
+        // setup the meshes for the HMD
+        this.setupMeshes();
+        
+        // do first calculation of the projection matrix as it is needed
+        // for the cameras
+        this.calcProjectionMatrix();
+
+        // setup the eye cameras
         this.camL = new FreeCamera("camL", this.pos.clone(), scene);
         this.camR = new FreeCamera("camR", this.pos.clone(), scene);
-
-        this.setupMeshes();
         this.setupEyeCams(this.camL, true);
         this.setupEyeCams(this.camR, false);
     }
@@ -193,83 +261,104 @@ export class HMD {
         // Set camera position and projection
         camera.position.copyFrom(eyePosition);
         camera.setTarget(this.pos.add(new Vector3(0, 0, -1)));
-        camera.freezeProjectionMatrix(this.calcProjectionMatrix());
+        if (isLeftEye) {
+            camera.freezeProjectionMatrix(this.projMatL);
+        }
     }
 
     /**
      * Calculate the projection matrix for the HMD for an eye.
+     * Update the commented code above to work for either eye.
      * @param isLeftEye Whether the eye is the left eye.
      * @returns The projection matrix for the HMD.
      */
-    //public calcProjectionMatrix(isLeftEye: boolean = true): Matrix {
-        //// calculate magnification factor
-        //// - note that if f < distLens2Display, then it will be -ve
-        //// - else it will be +ve
-        //// - when f = distLens2Display, the magFactor will be infinite
-        //const magnification = this.f / (this.f - this.distLens2Display);
+    public calcProjectionMatrix() {
+        // update eye to display distance in case something changed
+        // - TODO: this causes the frustum to increase when eyeRelief is increased which
+        //  is not correct
+        this.distEye2Display = this.eyeRelief + this.distLens2Display;
 
-        //// calculate the full height of the virtual image for the particular eye
-        //const imgHeight = this.displayHeight * magnification;
+        // calculate magnification factor
+        // - note that if f < distLens2Display, then it will be -ve
+        // - else it will be +ve
+        // - when f = distLens2Display, the magFactor will be infinite
+        this.magnification = this.f / (this.f - this.distLens2Display);
 
-        //// calculate the distance from the lens to the virtual image
-        //// - for HMD, the f needs to be > distLens2Display (or the object distance)
-        //// - this results in a -ve value for distLens2Img 
-        ////   which means the virtual image is on the same side as the object
-        //// - this is similar to a magnifying glass (as opposed to a projector)
-        //const distLens2Img = 1 / (1 / this.f - 1 / this.distLens2Display);
+        // calculate the full height of the virtual image for the particular eye
+        this.imgHeight = this.displayHeight * this.magnification;
 
-        //// calculate the distance from the eye to the virtual image
-        //// - make distLens2Img abs for calculations
-        //// - it is -ve in conceptual terms
-        //const distEye2Img = Math.abs(distLens2Img) + this.eyeRelief;
+        // calculate the distance from the lens to the virtual image
+        // - for HMD, the f needs to be > distLens2Display (or the object distance)
+        // - this results in a -ve value for distLens2Img 
+        //   which means the virtual image is on the same side as the object
+        // - this is similar to a magnifying glass (as opposed to a projector)
+        this.distLens2Img = 1 / (1 / this.f - 1 / this.distLens2Display);
 
-        //// calculate the near plane distance
-        //// - this should start at minimum the position of the display
-        //// - TODO: perhaps add a small offset to ensure the near plane is not too close
-        //const near = this.distEye2Display;
+        // calculate the distance from the eye to the virtual image
+        // - make distLens2Img abs for calculations
+        // - it is -ve in conceptual terms
+        this.distEye2Img = Math.abs(this.distLens2Img) + this.eyeRelief;
 
-        //// calculate the far plane distance
-        //// - this does not have to be exact, but should be far enough to encompass the scene
-        //// - for testing purposes, set it to be 5 units away from the near plane
-        //const far = near + 5;
+        // calculate the near plane distance
+        // - this should start at minimum the position of the display
+        this.near = this.distEye2Display;
 
-        //// set params for setting a camera
-        //// - the fov is the vertical fov
-        ////const fov = 2 * Math.atan((imgHeight / 2) / distEye2Img);
-        ////const minZ = near;
-        ////const maxZ = far;
+        // calculate the far plane distance
+        // - this does not have to be exact, but should be far enough to encompass the scene
+        // - for testing purposes, set it to be 5 units away from the near plane
+        this.far = this.near + 5;
 
-        //// calculate the left, right, top, and bottom values for the off-axis projection
-        //// - this was adapted from THREE.js's Matrix4.makePerspective function
-        //// - the built-in Babylon.js function does not allow for off-axis projection
-        //// - this is a manual calculation of the projection Matrix
-        //const top = near * imgHeight / (2 * distEye2Img);
-        //const bottom = -top;
-        //const imgWidthNasal = magnification * this.ipd / 2;
-        //const imgWidthTemporal = magnification * (this.displayWidth - this.ipd) / 2;
-        //const right = this.distEye2Display * imgWidthNasal / distEye2Img;
-        //const left = -this.distEye2Display * imgWidthTemporal / distEye2Img;
+        // set params for setting a camera
+        // - the fov is the vertical FOV
+        // - the aspect ratio is the display's aspect ratio
+        // - the near and far planes are set to the calculated values
+        this.fovVertical = 2 * Math.atan((this.imgHeight / 2) / this.distEye2Img);
+        this.fovHorizontal = 
+            Math.atan((this.magnification * this.ipd / 2) / this.distEye2Img) +
+            Math.atan((this.magnification * (this.displayWidth - this.ipd) / 2) 
+                / this.distEye2Img);
 
-        //if (DEBUG) {
-            //console.log('calculated top:', top, 'bottom:', bottom, 'right:', right, 'left:', left);
-        //}
+        // calculate the left, right, top, and bottom values for the off-axis projection
+        // - this was adapted from THREE.js's Matrix4.makePerspective function
+        // - the built-in Babylon.js function does not allow for off-axis projection
+        // - this is a manual calculation of the projection Matrix
+        this.top = this.near * this.imgHeight / (2 * this.distEye2Img);
+        this.bottom = -this.top;
+        this.imgWidthNasal = this.magnification * this.ipd / 2;
+        this.imgWidthTemporal = this.magnification * (this.displayWidth - this.ipd) / 2;
+        
+        // calculate the left and right values based on the eye
+        this.rightForLeftEye = this.distEye2Display * this.imgWidthNasal / this.distEye2Img;
+        this.leftForLeftEye = -this.distEye2Display * this.imgWidthTemporal / this.distEye2Img;
+        this.rightForRightEye = this.distEye2Display * this.imgWidthTemporal / this.distEye2Img;
+        this.leftForRightEye = -this.distEye2Display * this.imgWidthNasal / this.distEye2Img;
 
-        //const x = 2 * near / (right - left);
-        //const y = 2 * near / (top - bottom);
-        //const a = (right + left) / (right - left);
-        //const b = (top + bottom) / (top - bottom);
-        //const c = -(far + near) / (far - near);
-        //const d = (-2 * far * near) / (far - near);
-        //// if ( coordinateSystem === WebGPUCoordinateSystem ) 
-        ////c = - far / ( far - near );
-        ////d = ( - far * near ) / ( far - near );
+        // do left eye calculations
+        let x = 2 * this.near / (this.rightForLeftEye - this.leftForLeftEye);
+        const y = 2 * this.near / (this.top - this.bottom);
+        let a = (this.rightForLeftEye + this.leftForLeftEye) / (this.rightForLeftEye - this.leftForLeftEye);
+        const b = (this.top + this.bottom) / (this.top - this.bottom);
+        const c = -(this.far + this.near) / (this.far - this.near);
+        const d = (-2 * this.far * this.near) / (this.far - this.near);
+        // if ( coordinateSystem === WebGPUCoordinateSystem ) 
+        //c = - far / ( far - near );
+        //d = ( - far * near ) / ( far - near );
+        this.projMatL = Matrix.FromValues(
+            x, 0, 0, 0,
+            0, y, 0, 0,
+            a, b, c, -1,
+            0, 0, d, 0
+        );
 
-        //const projMat = Matrix.FromValues(
-            //x, 0, 0, 0,
-            //0, y, 0, 0,
-            //a, b, c, -1,
-            //0, 0, d, 0
-        //);
+        // now do right eye calculations
+        x = 2 * this.near / (this.rightForRightEye - this.leftForRightEye);
+        a = (this.rightForRightEye + this.leftForRightEye) / (this.rightForRightEye - this.leftForRightEye);
+        this.projMatR = Matrix.FromValues(
+            x, 0, 0, 0,
+            0, y, 0, 0,
+            a, b, c, -1,
+            0, 0, d, 0
+        );
 
         //if (DEBUG) {
             //console.log("----------------------------------");
@@ -297,122 +386,6 @@ export class HMD {
             //console.log(projMat);
             //console.log("----------------------------------");
         //}
-
-        //return projMat;
-    //}
-
-    /**
-     * Calculate the projection matrix for the HMD for an eye.
-     * Update the commented code above to work for either eye.
-     * @param isLeftEye Whether the eye is the left eye.
-     * @returns The projection matrix for the HMD.
-     */
-    public calcProjectionMatrix(isLeftEye: boolean = true): Matrix {
-        // calculate magnification factor
-        // - note that if f < distLens2Display, then it will be -ve
-        // - else it will be +ve
-        // - when f = distLens2Display, the magFactor will be infinite
-        const magnification = this.f / (this.f - this.distLens2Display);
-
-        // calculate the full height of the virtual image for the particular eye
-        const imgHeight = this.displayHeight * magnification;
-
-        // calculate the distance from the lens to the virtual image
-        // - for HMD, the f needs to be > distLens2Display (or the object distance)
-        // - this results in a -ve value for distLens2Img 
-        //   which means the virtual image is on the same side as the object
-        // - this is similar to a magnifying glass (as opposed to a projector)
-        const distLens2Img = 1 / (1 / this.f - 1 / this.distLens2Display);
-
-        // calculate the distance from the eye to the virtual image
-        // - make distLens2Img abs for calculations
-        // - it is -ve in conceptual terms
-        const distEye2Img = Math.abs(distLens2Img) + this.eyeRelief;
-
-        // calculate the near plane distance
-        // - this should start at minimum the position of the display
-        const near = this.distEye2Display;
-
-        // calculate the far plane distance
-        // - this does not have to be exact, but should be far enough to encompass the scene
-        // - for testing purposes, set it to be 5 units away from the near plane
-        const far = near + 5;
-
-        // set params for setting a camera
-        // - the fov is the vertical FOV
-        // - the aspect ratio is the display's aspect ratio
-        // - the near and far planes are set to the calculated values
-        const fov = 2 * Math.atan((imgHeight / 2) / distEye2Img);
-        const aspectRatio = this.aspectRatio;
-        const minZ = near;
-        const maxZ = far;
-
-        // calculate the left, right, top, and bottom values for the off-axis projection
-        // - this was adapted from THREE.js's Matrix4.makePerspective function
-        // - the built-in Babylon.js function does not allow for off-axis projection
-        // - this is a manual calculation of the projection Matrix
-        const top = near * imgHeight / (2 * distEye2Img);
-        const bottom = -top;
-        const imgWidthNasal = magnification * this.ipd / 2;
-        const imgWidthTemporal = magnification * (this.displayWidth - this.ipd) / 2;
-        
-        // calculate the left and right values based on the eye
-        const right = isLeftEye 
-            ? this.distEye2Display * imgWidthNasal / distEye2Img 
-            : this.distEye2Display * imgWidthTemporal / distEye2Img;
-        const left = isLeftEye
-            ? -this.distEye2Display * imgWidthTemporal / distEye2Img
-            : -this.distEye2Display * imgWidthNasal / distEye2Img;
-
-        if (DEBUG) {
-            console.log('calculated top:', top, 'bottom:', bottom, 'right:', right, 'left:', left);
-        }
-
-        const x = 2 * near / (right - left);
-        const y = 2 * near / (top - bottom);
-        const a = (right + left) / (right - left);
-        const b = (top + bottom) / (top - bottom);
-        const c = -(far + near) / (far - near);
-        const d = (-2 * far * near) / (far - near);
-        // if ( coordinateSystem === WebGPUCoordinateSystem ) 
-        //c = - far / ( far - near );
-        //d = ( - far * near ) / ( far - near );
-
-        const projMat = Matrix.FromValues(
-            x, 0, 0, 0,
-            0, y, 0, 0,
-            a, b, c, -1,
-            0, 0, d, 0
-        );
-
-        if (DEBUG) {
-            console.log("----------------------------------");
-            console.log("HMD PARAMETERS");
-            console.log("ipd:", this.ipd);
-            console.log("eyeRelief:", this.eyeRelief);
-            console.log("f:", this.f);
-            console.log("distLens2Display:", this.distLens2Display);
-            console.log("distEye2Display:", this.distEye2Display);
-            console.log("displayWidth:", this.displayWidth);
-            console.log("displayHeight:", this.displayHeight);
-            console.log("aspectRatio:", this.aspectRatio);
-            console.log("----------------------------------");
-            console.log("CALCULATED OTHER VALUES");
-            console.log("magFactor:", magnification);
-            console.log("imgHeight:", imgHeight);
-            console.log("distLens2Img:", distLens2Img);
-            console.log("distEye2Img:", distEye2Img);
-            console.log("----------------------------------");
-            console.log("NEAR AND FAR PLANES");
-            console.log("near:", near);
-            console.log("far:", far);
-            console.log("----------------------------------");
-            console.log("PROJECTION MATRIX");
-            console.log(projMat);
-            console.log("----------------------------------");
-        }
-
-        return projMat;
     }
 
     /**
@@ -433,6 +406,25 @@ export class HMD {
     }
 
     /**
+     * Update the eye meshes when eye relief changes.
+     * - this is called when the eye relief slider is changed
+     * @param newEyeRelief The new eye relief value.
+     */
+    public updateEyeRelief(newEyeRelief: number) {
+        this.eyeRelief = newEyeRelief;
+
+        // need to recalculate the projection matrix and all the other values
+        this.calcProjectionMatrix();
+
+        // update the eye positions
+        this.eyeL.position.z = -this.distEye2Display;
+        this.eyeR.position.z = -this.distEye2Display;
+
+        // notify observers that the values have been updated
+        this.notifyValuesUpdated();
+    }
+
+    /**
      * Update the eye position and target for the given camera.
      * @param camera The camera to update.
      * @param isLeftEye Whether the camera is the left eye.
@@ -441,5 +433,13 @@ export class HMD {
         const eyePosition = isLeftEye ? this.eyeL.position : this.eyeR.position;
         camera.position.copyFrom(eyePosition);
         camera.setTarget(eyePosition.add(new Vector3(0, 0, -1)));
+    }
+
+    /**
+     * Notify observers that the values have been updated.
+     */
+    onValuesUpdatedObservable = new Observable<void>();
+    public notifyValuesUpdated() {
+        this.onValuesUpdatedObservable.notifyObservers();
     }
 }

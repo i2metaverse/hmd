@@ -50,8 +50,9 @@ import {
     DirectionalLight,
     ShadowGenerator,
     FreeCamera,
+    Matrix,
 } from "@babylonjs/core";
-
+import * as GUI from "@babylonjs/gui";
 import { FrustumVisualizer } from "./frustumVisualizer";
 import { HMD } from "./hmd";
 
@@ -131,6 +132,139 @@ export class App {
     }
 
     /**
+     * Add UI controls to the scene.
+     * - add a slider to change the eyeRelief in the HMD.
+     */
+    private addUI(hmd: HMD) {
+        // create a GUI
+        const advancedTexture = GUI.AdvancedDynamicTexture.CreateFullscreenUI('UI');
+
+        // create a stack panel to hold the controls
+        const stackPanel = new GUI.StackPanel();
+        stackPanel.width = '220px';
+        stackPanel.fontSize = '14px';
+        stackPanel.horizontalAlignment = GUI.Control.HORIZONTAL_ALIGNMENT_RIGHT;
+        stackPanel.verticalAlignment = GUI.Control.VERTICAL_ALIGNMENT_CENTER;
+        advancedTexture.addControl(stackPanel);
+        //
+        // create a text block to show the eye relief value
+        const eyeReliefText = new GUI.TextBlock();
+        eyeReliefText.text = `Eye Relief: ${hmd.eyeRelief.toFixed(2)}`;
+        eyeReliefText.height = '30px';
+        eyeReliefText.color = 'white';
+        stackPanel.addControl(eyeReliefText);
+
+        // create a slider to change the eye relief
+        const eyeReliefSlider = new GUI.Slider();
+        eyeReliefSlider.minimum = 0.001;
+        eyeReliefSlider.maximum = 10.0;
+        eyeReliefSlider.value = hmd.eyeRelief;
+        eyeReliefSlider.height = '20px';
+        eyeReliefSlider.width = '200px';
+        eyeReliefSlider.color = 'red';
+        eyeReliefSlider.background = 'lightgray';
+        eyeReliefSlider.thumbColor = 'darkred';
+        eyeReliefSlider.onValueChangedObservable.add((value) => {
+            // update the eye relief value in the HMD
+            // - also updates the eye mesh positions
+            hmd.updateEyeRelief(value);
+
+            // update the text block to show the new eye relief value
+            eyeReliefText.text = `Eye Relief: ${hmd.eyeRelief.toFixed(2)}`;
+        });
+        stackPanel.addControl(eyeReliefSlider);
+
+        // create a list of text blocks to show all the HMD params and calculated values
+        // - make them tiny and packed so they don't take up much space
+        // - place them on the left of the screen
+        const paramsPanel = new GUI.StackPanel();
+        paramsPanel.width = '220px';
+        paramsPanel.fontSize = '12px';
+        paramsPanel.horizontalAlignment = GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
+        paramsPanel.verticalAlignment = GUI.Control.VERTICAL_ALIGNMENT_TOP;
+        advancedTexture.addControl(paramsPanel);
+
+        // reduce the line space between the text blocks
+        paramsPanel.paddingTop = '10px';
+        //paramsPanel.paddingBottom = '5px';
+
+        // create a text block for each HMD param
+        // - show the param name and value
+        // - dynamically update the value when the param changes
+        // TODO: the updating is very inefficient, but it's fine for now
+        let displayParams = hmd.displayParams;
+        for (const key in displayParams) {
+            if (displayParams.hasOwnProperty(key)) {
+                const textBlock = new GUI.TextBlock();
+                const typedKey = key as keyof typeof displayParams;
+                const value = displayParams[typedKey];
+
+                // Ensure the value is numeric before using .toFixed(2)
+                if (typeof value === 'number') {
+                    textBlock.text = `${key}: ${value.toFixed(2)}`;
+                } else {
+                    textBlock.text = `${key}: ${value}`;
+                }
+
+                textBlock.height = '12px';
+                textBlock.color = 'white';
+                textBlock.horizontalAlignment = GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
+                paramsPanel.addControl(textBlock);
+
+                // update the text block when the param changes
+                hmd.onValuesUpdatedObservable.add(() => {
+                    // fetch the latest value
+                    displayParams = hmd.displayParams;
+
+                    // Ensure the value is numeric before using .toFixed(2)
+                    const value = displayParams[typedKey];
+                    if (typeof value === 'number') {
+                        textBlock.text = `${key}: ${value.toFixed(2)}`;
+                    } else {
+                        textBlock.text = `${key}: ${value}`;
+                    }
+                });
+            }
+        }
+
+        let displayCalculatedVals = hmd.displayCalculatedVals;
+        for (const key in displayCalculatedVals) {
+            if (displayCalculatedVals.hasOwnProperty(key)) {
+                const textBlock = new GUI.TextBlock();
+                const typedKey = key as keyof typeof displayCalculatedVals;
+                const value = displayCalculatedVals[typedKey];
+
+                // Ensure the value is numeric before using .toFixed(2)
+                if (typeof value === 'number') {
+                    textBlock.text = `${key}: ${value.toFixed(2)}`;
+                } else {
+                    textBlock.text = `${key}: ${value}`;
+                }
+
+                textBlock.height = '12px';
+                textBlock.color = 'yellow';
+                textBlock.horizontalAlignment = GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
+                paramsPanel.addControl(textBlock);
+
+                // update the text block when the param changes
+                hmd.onValuesUpdatedObservable.add(() => {
+                    // fetch the latest value
+                    displayCalculatedVals = hmd.displayCalculatedVals;
+
+                    // Ensure the value is numeric before using .toFixed(2)
+                    const value = displayCalculatedVals[typedKey];
+                    if (typeof value === 'number') {
+                        textBlock.text = `${key}: ${value.toFixed(2)}`;
+                    } else {
+                        textBlock.text = `${key}: ${value}`;
+                    }
+                });
+            }
+
+        }
+    }
+
+    /**
      * Create the scene.
      * @returns A promise that resolves when the application is done running.
      * @remarks This is the main entry point for the application.
@@ -157,10 +291,9 @@ export class App {
         // Create the HMD
         const hmd = new HMD(scene);
 
-        // Get the projection matrix for each eye
-        const projMatL = hmd.calcProjectionMatrix(true);
-        const projMatR = hmd.calcProjectionMatrix(false);
-        
+        // Add UI controls to the scene
+        this.addUI(hmd);
+
         // get view and transform matrices from HMD
         let transformMat = hmd.transformMatrix;
         
@@ -169,8 +302,11 @@ export class App {
 
         // Create the frustum mesh for the eyes
         //const frustumLines = createFrustumLines(scene, projMat, viewMat, transformMat);
-        const frustumVisualizerL = new FrustumVisualizer(projMatL, hmd.viewMatrixL, transformMat, scene);
-        const frustumVisualizerR = new FrustumVisualizer(projMatR, hmd.viewMatrixR, transformMat, scene);
+        const frustumVisualizerL = new FrustumVisualizer(hmd.projMatL, hmd.viewMatrixL, transformMat, scene);
+        const frustumVisualizerR = new FrustumVisualizer(hmd.projMatR, hmd.viewMatrixR, transformMat, scene);
+
+        //DEBUG: toggle to show left and right frustums
+        //frustumVisualizerL.setVisibility(false)
 
         // Create the scene animation
         let elapsedSecs = 0.0;
@@ -183,8 +319,8 @@ export class App {
             hmd.updatePosition(newPos);
 
             // update the frustum mesh using updated view matrices
-            frustumVisualizerL.updateFrustumMesh(projMatL, hmd.viewMatrixL, transformMat);
-            frustumVisualizerR.updateFrustumMesh(projMatR, hmd.viewMatrixR, transformMat);
+            frustumVisualizerL.updateFrustumMesh(hmd.projMatL, hmd.viewMatrixL, transformMat);
+            frustumVisualizerR.updateFrustumMesh(hmd.projMatR, hmd.viewMatrixR, transformMat);
         });
 
         // Return the scene when it is ready
