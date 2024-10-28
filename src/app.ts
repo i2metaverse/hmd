@@ -157,25 +157,20 @@ export class App {
         // Create the HMD
         const hmd = new HMD(scene);
 
-        // Get the projection matrix for the left eye
-        const projMat = hmd.calculateProjectionMatrix();
+        // Get the projection matrix for each eye
+        const projMatL = hmd.calcProjectionMatrix(true);
+        const projMatR = hmd.calcProjectionMatrix(false);
         
         // get view and transform matrices from HMD
-        let viewMat = hmd.viewMatrixL
         let transformMat = hmd.transformMatrix;
-
-        if (DEBUG) {
-            console.log('createScene: Projection matrix:', projMat.toString());
-            console.log('createScene: View matrix:', viewMat.toString());
-            console.log('createScene: Transform matrix:', transformMat.toString());
-        }
         
         // Create a test view matrix that looks to the front
         //const viewMat = Matrix.LookAtLH(eyeL.position, Vector3.Zero(), Vector3.Up());
 
-        // Create the frustum mesh for the left eye
+        // Create the frustum mesh for the eyes
         //const frustumLines = createFrustumLines(scene, projMat, viewMat, transformMat);
-        const frustumVisualizer = new FrustumVisualizer(projMat, viewMat, transformMat, scene);
+        const frustumVisualizerL = new FrustumVisualizer(projMatL, hmd.viewMatrixL, transformMat, scene);
+        const frustumVisualizerR = new FrustumVisualizer(projMatR, hmd.viewMatrixR, transformMat, scene);
 
         // Create the scene animation
         let elapsedSecs = 0.0;
@@ -187,11 +182,9 @@ export class App {
             newPos.x = Math.sin(elapsedSecs * 0.1) * animSpeed;
             hmd.updatePosition(newPos);
 
-            // update the view matrix for the left eye
-            viewMat = hmd.viewMatrixL;
-
-            // update the frustum mesh
-            frustumVisualizer.updateFrustumMesh(projMat, viewMat, transformMat);
+            // update the frustum mesh using updated view matrices
+            frustumVisualizerL.updateFrustumMesh(projMatL, hmd.viewMatrixL, transformMat);
+            frustumVisualizerR.updateFrustumMesh(projMatR, hmd.viewMatrixR, transformMat);
         });
 
         // Return the scene when it is ready
