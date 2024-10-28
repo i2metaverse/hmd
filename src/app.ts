@@ -1,8 +1,11 @@
 /**
- * @fileoverview The main application class for the project.
+ * @fileoverview This file contains the main class for the web application.
  * @author your instructors
  * @lastUpdated 2024-01-04
  */
+
+// DEBUG flag
+const DEBUG = true;
 
 /**
  * The parameters for the VR HMD.
@@ -15,6 +18,7 @@
  *   distLens2Display: 39mm
  *   displayWidth: 120.96mm
  *   displayHeight: 68.03mm
+ *   lensDiameter: 34mm
  */
 const hmdParams = {
     pos: new Vector3(0, 2, -5),
@@ -24,6 +28,10 @@ const hmdParams = {
     distLens2Display: 0.39,
     displayWidth: 1.2096,
     displayHeight: 0.6803,
+    displayDepth: 0.05,
+    lensDiameter: 0.34,
+    lensDepth: 0.05,
+    eyeRadius: 0.15,
 
     /**
      * Get the aspect ratio of the display screen.
@@ -228,14 +236,15 @@ export class App {
         
         // Create display mesh for the HMD
         const display = MeshBuilder.CreateBox('display', 
-            {width: hmdParams.displayWidth, height: hmdParams.displayHeight, depth: 0.05}, scene);
+            {width: hmdParams.displayWidth, height: hmdParams.displayHeight, depth: hmdParams.displayDepth}, scene);
         display.enableEdgesRendering();
         display.edgesWidth = 1;
         display.visibility = 0.3;
         display.edgesColor = new Color4(0.5, 0.5, 1, 1);
 
         // Create lens mesh for the HMD, rotated to face the display
-        const lensL = MeshBuilder.CreateCylinder('lens', {diameter: 0.35, height: 0.05, tessellation: 24}, scene);
+        const lensL = MeshBuilder.CreateCylinder('lens', 
+            {diameter: hmdParams.lensDiameter, height: hmdParams.lensDepth, tessellation: 24}, scene);
         lensL.rotation.x = Math.PI / 2;
         lensL.enableEdgesRendering();
         lensL.edgesWidth = 1;
@@ -245,7 +254,8 @@ export class App {
         lensL.position.x -= hmdParams.ipd/2;
         lensL.position.z -= hmdParams.distLens2Display;
 
-        const lensR = MeshBuilder.CreateCylinder('lens', {diameter: 0.35, height: 0.05, tessellation: 24}, scene);
+        const lensR = MeshBuilder.CreateCylinder('lens', 
+            {diameter: hmdParams.lensDiameter, height: hmdParams.lensDepth, tessellation: 24}, scene);
         lensR.rotation.x = Math.PI / 2;
         lensR.enableEdgesRendering();
         lensR.edgesWidth = 1;
@@ -258,8 +268,8 @@ export class App {
         // Create a mesh to represent the eyes
         // NOTE: the positions are all relative to the display
         // TODO: get position values all from the hmdParams
-        const eyeL = MeshBuilder.CreateSphere('eyeL', {diameter: 0.2}, scene);
-        const eyeR = MeshBuilder.CreateSphere('eyeR', {diameter: 0.2}, scene);
+        const eyeL = MeshBuilder.CreateSphere('eyeL', {diameter: hmdParams.eyeRadius}, scene);
+        const eyeR = MeshBuilder.CreateSphere('eyeR', {diameter: hmdParams.eyeRadius}, scene);
         eyeL.parent = display;
         eyeR.parent = display;
         eyeL.position.x -= hmdParams.ipd / 2;
@@ -276,15 +286,15 @@ export class App {
         camL.parent = eyeL; // TODO: this does nothing
         camR.parent = eyeR;
 
-        // make the eyes translucent
+        // make the eyes translucent and with a flesh like color
         const matEye = new StandardMaterial('eyeMatL', scene);
-        matEye.diffuseColor.set(0.5, 0.5, 0.5);
+        matEye.diffuseColor.set(1, 0.8, 0.6);
         matEye.alpha = 0.5;
         eyeL.material = matEye;
         eyeR.material = matEye;
 
         /**
-         * Update the HMD position
+         * Update the HMD position and everything that depends on it.
          * @param newPos The new position to set the HMD to.
          */
         function updateHMDPosition(newPos = Vector3.Zero()) {
@@ -342,7 +352,8 @@ export class App {
 
             // calculate the far plane distance
             // - this does not have to be exact, but should be far enough to encompass the scene
-            const far = near + 10;
+            // - for testing purposes, set it to be 5 units away from the near plane
+            const far = near + 5;
 
             // set remaining params for projection
             // - the fov is the vertical fov
@@ -350,11 +361,11 @@ export class App {
             const minZ = near;
             const maxZ = far;
 
-            // DEBUG: show the values
-            console.log('BEFORE updating camera projection matrix:', 
-                camera.getProjectionMatrix().toString());
 
             // calculate the left, right, top, and bottom values for the off-axis projection
+            // - this was adapted from THREE.js's Matrix4.makePerspective function
+            // - the built-in Babylon.js function does not allow for off-axis projection
+            // - this is a manual calculation of the projection Matrix
             const top = hmdParams.distEye2Display * imgHeight / (2 * distEye2Img);
             const bottom = -top;
             const imgWidthNasal = magnification * hmdParams.ipd / 2;
@@ -362,38 +373,24 @@ export class App {
             const right = hmdParams.distEye2Display * imgWidthNasal / distEye2Img;
             const left = -hmdParams.distEye2Display * imgWidthTemporal / distEye2Img;
 
-            console.log('top:', top, 'bottom:', bottom, 'right:', right, 'left:', left);
+            if (DEBUG) {
+                console.log('BEFORE updating camera projection matrix:', 
+                    camera.getProjectionMatrix().toString());
+                console.log('calculated top:', top, 'bottom:', bottom, 'right:', right, 'left:', left);
+            }
 
             // manually create the LH off-axis projection matrix
-            // - the built-in Babylon.js function does not allow for off-axis projection
-            // - this is a manual calculation of the projection Matrix
-            // - note that the values are not updated in the camera object
-            //const projMat = Matrix.FromValues(
-                //2 * near / (right - left), 0, 0, 0,
-                //0, 2 * near / (top - bottom), 0, 0,
-                //(right + left) / (right - left), (top + bottom) / (top - bottom), -(far + near) / (far - near), -1,
-                //0, 0, -2 * far * near / (far - near), 0
-            //);
             const x = 2 * near / ( right - left );
             const y = 2 * near / ( top - bottom );
-
             const a = ( right + left ) / ( right - left );
             const b = ( top + bottom ) / ( top - bottom );
-
             let c, d;
-
             //if ( coordinateSystem === WebGLCoordinateSystem ) {
             c = - ( far + near ) / ( far - near );
             d = ( - 2 * far * near ) / ( far - near );
             //} else if ( coordinateSystem === WebGPUCoordinateSystem ) {
-                //c = - far / ( far - near );
-                //d = ( - far * near ) / ( far - near );
-
-            //te[ 0 ] = x;	te[ 4 ] = 0;	te[ 8 ] = a; 	te[ 12 ] = 0;
-            //te[ 1 ] = 0;	te[ 5 ] = y;	te[ 9 ] = b; 	te[ 13 ] = 0;
-            //te[ 2 ] = 0;	te[ 6 ] = 0;	te[ 10 ] = c; 	te[ 14 ] = d;
-            //te[ 3 ] = 0;	te[ 7 ] = 0;	te[ 11 ] = - 1;	te[ 15 ] = 0;
-
+            //c = - far / ( far - near );
+            //d = ( - far * near ) / ( far - near );
             const projMat = Matrix.FromValues(
                 x, 0, 0, 0,
                 0, y, 0, 0,
@@ -401,14 +398,9 @@ export class App {
                 0, 0, d, 0
             );
 
-            //const projMat = Matrix.FromValues(
-                //2 * near / (right - left), 0, (right + left) / (right - left), 0,
-                //0, 2 * near / (top - bottom), (top + bottom) / (top - bottom), 0,
-                //0, 0, -(far + near) / (far - near), -2 * far * near / (far - near),
-                //0, 0, -1, 0
-            //);
-
-            console.log('Manual projection matrix:', projMat.toString());
+            if (DEBUG) {
+                console.log('Manually created projection matrix:', projMat.toString());
+            }
 
             // this built-in function does not allow for off-axis projection
             // - the frustum is symmetrical both horizontally and vertically
@@ -433,42 +425,51 @@ export class App {
             // affect all changes in camera to take effect
             camera.unfreezeProjectionMatrix()
 
-            // DEBUG: show values
-            console.log('AFTER updating camera projection matrix:', 
-                    camera.getProjectionMatrix().toString());
-
-            // log above in nice format
-            console.log('----------------------------------');
-            console.log('HMD PARAMETERS');
-            console.log('ipd:', hmdParams.ipd);
-            console.log('eyeRelief:', hmdParams.eyeRelief);
-            console.log('f:', hmdParams.f);
-            console.log('distLens2Display:', hmdParams.distLens2Display);
-            console.log('distEye2Display:', hmdParams.distEye2Display);
-            console.log('displayWidth:', hmdParams.displayWidth);
-            console.log('displayHeight:', hmdParams.displayHeight);
-            console.log('aspectRatio:', hmdParams.aspectRatio);
-            console.log('----------------------------------');
-            console.log('EYE POSITION (does not affect projection)');
-            console.log('eyePosL:', eyeL.getAbsolutePosition(), 
-                'eyePosR:', eyeR.getAbsolutePosition());
-            console.log('----------------------------------');
-            console.log('CALCULATED OTHER VALUES');
-            console.log('magFactor:', magnification);
-            console.log('imgWidth:', imgWidth);
-            console.log('imgHeight:', imgHeight);
-            console.log('distLens2Img:', distLens2Img);
-            console.log('distEye2Img:', distEye2Img);
-            console.log('----------------------------------');
-            console.log('NEAR AND FAR PLANES');
-            console.log('near:', near);
-            console.log('far:', far);
-            console.log('----------------------------------');
-            console.log('CAMERA PARAMS');
-            console.log('fov:', camera.fov);
-            console.log('minZ:', camera.minZ);
-            console.log('maxZ:', camera.maxZ);
-
+            if (DEBUG) {
+                // log above in nice format
+                console.log("----------------------------------");
+                console.log("HMD PARAMETERS");
+                console.log("ipd:", hmdParams.ipd);
+                console.log("eyeRelief:", hmdParams.eyeRelief);
+                console.log("f:", hmdParams.f);
+                console.log("distLens2Display:", hmdParams.distLens2Display);
+                console.log("distEye2Display:", hmdParams.distEye2Display);
+                console.log("displayWidth:", hmdParams.displayWidth);
+                console.log("displayHeight:", hmdParams.displayHeight);
+                console.log("aspectRatio:", hmdParams.aspectRatio);
+                console.log("----------------------------------");
+                console.log("EYE POSITION (does not affect projection)");
+                console.log(
+                    "eyePosL:",
+                    eyeL.getAbsolutePosition(),
+                    "eyePosR:",
+                    eyeR.getAbsolutePosition()
+                );
+                console.log("----------------------------------");
+                console.log("CALCULATED OTHER VALUES");
+                console.log("magFactor:", magnification);
+                console.log("imgWidth:", imgWidth);
+                console.log("imgHeight:", imgHeight);
+                console.log("distLens2Img:", distLens2Img);
+                console.log("distEye2Img:", distEye2Img);
+                console.log("----------------------------------");
+                console.log("NEAR AND FAR PLANES");
+                console.log("near:", near);
+                console.log("far:", far);
+                console.log("----------------------------------");
+                console.log(
+                    "PROJECTION MATRIX after updating with freezeProjectionMatrix"
+                );
+                console.log(projMat.toString());
+                console.log("----------------------------------");
+                console.log(
+                    "CAMERA PARAMS after updating with freezeProjectionMatrix"
+                );
+                console.log("fov:", camera.fov);
+                console.log("minZ:", camera.minZ);
+                console.log("maxZ:", camera.maxZ);
+                console.log("----------------------------------");
+            }
             // return the projection Matrix
             return projMat;
         }
@@ -686,17 +687,10 @@ export class App {
         let animSpeed = 2.0;
         const newPos = hmdParams.pos.clone();
         scene.onBeforeRenderObservable.add(() => {
-            // move the eye position in a sine wave oscillation to show changes in the frustum
+            // move the HMD in a sine wave oscillation to show changes in the frustum
             elapsedSecs += scene.getEngine().getDeltaTime() / 1000;
-            //eyePosL.x = Math.sin(elapsedSecs * 0.1) * animSpeed;
-            //hmdParams.pos.x = Math.sin(elapsedSecs * 0.1) * animSpeed;
-
-            // update the HMD position
             newPos.x = Math.sin(elapsedSecs * 0.1) * animSpeed;
             updateHMDPosition(newPos);
-
-            // update camera position to match the eye position
-            //camL.position.copyFrom(eyePosL);
 
             // update the projection matrix for the left eye
             // setProjection(camL, eyePosL);
