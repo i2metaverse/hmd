@@ -188,8 +188,46 @@ export class HMD {
         this.lensR.position.x = this.ipd / 2;
         this.lensR.position.z = -this.distLens2Display;
 
+        // update the display size with affecting the children
+        this.updateDisplaySize();
+
         // notify observers that the values have been updated
         this.notifyValuesUpdated();
+    }
+
+    /**
+     * Update the display size without affecting the children.
+     * - temporarily detach children, update the display size,
+     *   and reattach children
+     */
+    private updateDisplaySize() {
+        // get the current width and height of the display
+        const boundingInfo = this.display.getBoundingInfo().boundingBox;
+        const currWidth = boundingInfo.maximumWorld.x - boundingInfo.minimumWorld.x;
+        const currHeight = boundingInfo.maximumWorld.y - boundingInfo.minimumWorld.y;
+        
+        // only update if the width or height has changed
+        if (this.displayWidth === currWidth && this.displayHeight === currHeight) {
+            return;
+        }
+
+        const scalingFactorX = this.displayWidth / currWidth;
+        const scalingFactorY = this.displayHeight / currHeight;
+
+        // detach children
+        const children = this.display.getChildMeshes();
+        children.forEach((child) => {
+            child.setParent(null);
+        });
+
+        // update the display size
+        this.display.scaling.x *= scalingFactorX;
+        this.display.scaling.y *= scalingFactorY;
+        
+        // reattach children
+        children.forEach((child) => {
+            child.setParent(this.display);
+        });
     }
 
 
