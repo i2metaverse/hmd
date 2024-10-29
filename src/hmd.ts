@@ -39,7 +39,7 @@ export class HMD {
      */
     pos = new Vector3(0, 2, -5);
     f = .4;
-    ipd = .9;
+    ipd = .6;
     eyeRelief = .18;
     distLens2Display = .39;
     displayWidth = 1.2096;
@@ -236,7 +236,8 @@ export class HMD {
      * - use a lookat point in front of the lens as the target to create a rotation
      * @returns The view matrix for the left lens of the HMD.
      *
-     * TODO: not sure why the lookat point needs to be behind the lens for the
+     * TODO: not sure why the lookat point needs to be behind the lens, 
+     *       and the up vector needs to be down for the
      *       frustum to be rotated correctly
      */
     get viewMatrixL() {
@@ -245,7 +246,7 @@ export class HMD {
         leftEyePos.z -= this.distEye2Display;
         const lookAtPoint = leftEyePos.clone();
         lookAtPoint.z -= 1;
-        return Matrix.LookAtLH(leftEyePos, lookAtPoint, Vector3.Up());
+        return Matrix.LookAtLH(leftEyePos, lookAtPoint, Vector3.Down());
     }
 
     /**
@@ -259,7 +260,7 @@ export class HMD {
         rightEyePos.z -= this.distEye2Display;
         const lookAtPoint = rightEyePos.clone();
         lookAtPoint.z -= 1;
-        return Matrix.LookAtLH(rightEyePos, lookAtPoint, Vector3.Up());
+        return Matrix.LookAtLH(rightEyePos, lookAtPoint, Vector3.Down());
     }
 
     /**

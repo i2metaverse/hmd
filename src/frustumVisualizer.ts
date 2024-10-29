@@ -286,4 +286,11 @@ export class FrustumVisualizer {
     public setVisibility(isVisible: boolean) {
         this.frustumMesh.isVisible = isVisible;
     }
+
+    /**
+     * Toggle the visibility of the frustum mesh.
+     */
+    public toggleVisibility() {
+        this.frustumMesh.isVisible = !this.frustumMesh.isVisible;
+    }
 }

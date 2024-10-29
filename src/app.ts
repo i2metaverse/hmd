@@ -55,6 +55,7 @@ import {
 import * as GUI from "@babylonjs/gui";
 import { FrustumVisualizer } from "./frustumVisualizer";
 import { HMD } from "./hmd";
+import {Frustum} from "babylonjs";
 
 /**
  * The main class for the web application.
@@ -62,6 +63,10 @@ import { HMD } from "./hmd";
 export class App {
     // the BabylonJS engine
     private engine: Engine;
+
+    // make frustumVisualizerL and frustumVisualizerR global so that they can be toggled
+    private frustumVisualizerL: FrustumVisualizer | undefined;
+    private frustumVisualizerR: FrustumVisualizer | undefined;
 
     /**
      * Constructor to create the App object with an engine.
@@ -275,6 +280,51 @@ export class App {
             }
 
         }
+
+        // Create a horizontal StackPanel to hold both buttons side by side
+        const buttonPanel = new GUI.StackPanel();
+        buttonPanel.isVertical = false; // Set to horizontal layout
+        buttonPanel.horizontalAlignment = GUI.Control.HORIZONTAL_ALIGNMENT_CENTER;
+        buttonPanel.verticalAlignment = GUI.Control.VERTICAL_ALIGNMENT_BOTTOM;
+
+        // Add the left and right frustum toggle buttons to the buttonPanel
+        const toggleFrustumL = this.createToggleButton('Frustum L', '#8B0000', () => {
+            this.frustumVisualizerL?.toggleVisibility();
+        });
+        const toggleFrustumR = this.createToggleButton('Frustum R', '#00008B', () => {
+            this.frustumVisualizerR?.toggleVisibility();
+        });
+
+        buttonPanel.addControl(toggleFrustumL);
+        buttonPanel.addControl(toggleFrustumR);
+
+        // Add the buttonPanel to the userPanel
+        advancedTexture.addControl(buttonPanel)
+    }
+
+    /** Helper UI function to create toggle buttons
+     */
+    private createToggleButton(text: string, backgroundColor: string, 
+        onClickHandler:(eventData: GUI.Vector2WithInfo, eventState: BABYLON.EventState) => void
+    ) {       
+        const button = new GUI.Button();
+        button.width = '100px';
+        button.height = '50px';
+        button.color = 'white';
+        button.background = backgroundColor;
+        button.cornerRadius = 3;
+        button.thickness = 2;
+        button.verticalAlignment = GUI.Control.VERTICAL_ALIGNMENT_BOTTOM;
+        button.paddingRight = '5px'
+        button.paddingBottom = '20px'
+
+        const textBlock = new GUI.TextBlock();
+        textBlock.text = text;
+        button.addControl(textBlock);
+
+        button.onPointerClickObservable.add(onClickHandler);
+
+        return button;
     }
 
     /**
@@ -315,11 +365,8 @@ export class App {
 
         // Create the frustum mesh for the eyes
         //const frustumLines = createFrustumLines(scene, projMat, viewMat, transformMat);
-        const frustumVisualizerL = new FrustumVisualizer(hmd.projMatL, hmd.viewMatrixL, transformMat, scene);
-        const frustumVisualizerR = new FrustumVisualizer(hmd.projMatR, hmd.viewMatrixR, transformMat, scene);
-
-        //DEBUG: toggle to show left and right frustums
-        //frustumVisualizerL.setVisibility(false)
+        this.frustumVisualizerL = new FrustumVisualizer(hmd.projMatL, hmd.viewMatrixL, transformMat, scene);
+        this.frustumVisualizerR = new FrustumVisualizer(hmd.projMatR, hmd.viewMatrixR, transformMat, scene);
 
         // Create the scene animation
         let elapsedSecs = 0.0;
@@ -332,8 +379,8 @@ export class App {
             hmd.updatePosition(newPos);
 
             // update the frustum mesh using updated view matrices
-            frustumVisualizerL.updateFrustumMesh(hmd.projMatL, hmd.viewMatrixL, transformMat);
-            frustumVisualizerR.updateFrustumMesh(hmd.projMatR, hmd.viewMatrixR, transformMat);
+            this.frustumVisualizerL?.updateFrustumMesh(hmd.projMatL, hmd.viewMatrixL, transformMat);
+            this.frustumVisualizerR?.updateFrustumMesh(hmd.projMatR, hmd.viewMatrixR, transformMat);
         });
 
         // Return the scene when it is ready
