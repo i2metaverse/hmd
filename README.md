@@ -10,6 +10,8 @@ Just go to the live page built from the latest version that is served via GitHub
 
 ## Some interesting things to try
 
+Increase the distLens2Display until it is greater than the focal length, f, of the lens. Something will flip...
+
 Increase the IPD until the frustum do not overlap anymore.
 
 Reduce the eyeRelief to see how the frustum changes.

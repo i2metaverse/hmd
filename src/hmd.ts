@@ -181,6 +181,8 @@ export class HMD {
         // update the eye positions
         this.eyeL.position.z = -this.distEye2Display;
         this.eyeR.position.z = -this.distEye2Display;
+        this.eyeL.position.x = -this.ipd / 2;
+        this.eyeR.position.x = this.ipd / 2;
 
         // update the lens positions
         this.lensL.position.x = -this.ipd / 2;
