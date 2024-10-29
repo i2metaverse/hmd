@@ -57,10 +57,12 @@ export class HMD {
     distEye2Img = Math.abs(this.distLens2Img) + this.eyeRelief;
     near = this.distEye2Display;
     far = this.near + 5;
-    fovVertical = 2 * Math.atan((this.imgHeight / 2) / this.distEye2Img);
-    fovHorizontal = Math.atan((this.magnification * this.ipd / 2) / this.distEye2Img) 
-        + Math.atan((this.magnification * (this.displayWidth - this.ipd) / 2) / this.distEye2Img);
     aspectRatio = this.displayWidth / this.displayHeight;
+    fovVertical = 2 * Math.atan((this.imgHeight / 2) / this.distEye2Img);
+    fovHNasal = Math.atan((this.magnification * this.ipd / 2) / this.distEye2Img);
+    fovHTemporal = Math.atan((this.magnification * (this.displayWidth - this.ipd) / 2) 
+                   / this.distEye2Img);
+    fovHorizontal = this.fovHNasal + this.fovHTemporal;
 
     // Calculated values for the off-axis projection
     top = this.near * this.imgHeight / (2 * this.distEye2Img);
@@ -151,6 +153,8 @@ export class HMD {
             near: this.near,
             far: this.far,
             fovVertical: this.fovVertical,
+            fovHNasal: this.fovHNasal,
+            fovHTemporal: this.fovHTemporal,
             fovHorizontal: this.fovHorizontal,
             aspectRatio: this.aspectRatio,
             top: this.top,
@@ -403,10 +407,16 @@ export class HMD {
         // - the aspect ratio is the display's aspect ratio
         // - the near and far planes are set to the calculated values
         this.fovVertical = 2 * Math.atan((this.imgHeight / 2) / this.distEye2Img);
-        this.fovHorizontal = 
-            Math.atan((this.magnification * this.ipd / 2) / this.distEye2Img) +
-            Math.atan((this.magnification * (this.displayWidth - this.ipd) / 2) 
-                / this.distEye2Img);
+        this.fovHNasal = Math.atan((this.magnification * this.ipd / 2) / this.distEye2Img);
+        this.fovHTemporal = Math.atan((this.magnification * (this.displayWidth - this.ipd) / 2) 
+                            / this.distEye2Img);
+        this.fovHorizontal = this.fovHNasal + this.fovHTemporal;
+
+        // convert to degrees
+        this.fovVertical = this.fovVertical * 180 / Math.PI;
+        this.fovHorizontal = this.fovHorizontal * 180 / Math.PI;
+        this.fovHNasal = this.fovHNasal * 180 / Math.PI;
+        this.fovHTemporal = this.fovHTemporal * 180 / Math.PI;
 
         // calculate the left, right, top, and bottom values for the off-axis projection
         // - this was adapted from THREE.js's Matrix4.makePerspective function
