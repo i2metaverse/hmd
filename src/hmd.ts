@@ -20,6 +20,8 @@ import {
 export class HMD {
     private scene: Scene;
 
+    [key: string]: any; // Index signature to allow dynamic keys
+
     /**
      * The parameters for the VR HMD.
      *
@@ -117,6 +119,24 @@ export class HMD {
             //eyeDiameter: this.eyeDiameter,
         };
     }
+    
+    /**
+     * Create a list of params to be used as sliders for the HMD.
+     */
+    get sliderParams() {
+        return {
+            f: { min: 0.1, max: 2, step: 0.01 },
+            ipd: { min: 0.001, max: 2, step: 0.01 },
+            eyeRelief: { min: 0.001, max: 10, step: 0.01 },
+            distLens2Display: { min: 0.1, max: 2, step: 0.01 },
+            displayWidth: { min: 0.5, max: 5, step: 0.01 },
+            displayHeight: { min: 0.5, max: 5, step: 0.01 },
+            //displayDepth: { min: 0.01, max: 0.1, step: 0.01 },
+            //lensDiameter: { min: 0.1, max: 0.5, step: 0.01 },
+            //lensDepth: { min: 0.01, max: 0.1, step: 0.01 },
+            //eyeDiameter: { min: 0.1, max: 0.5, step: 0.01 },
+        };
+    }
 
     /**
      * Create a list of the calculated values for the HMD.
@@ -143,6 +163,35 @@ export class HMD {
             rightForRightEye: this.rightForRightEye,
         };
     }
+
+    /**
+     * Set a particular param value from the UI sliders.
+     * - update the projection matrix and other values
+     * - update the visual representation of the HMD
+     * - notify observers that the values have been updated
+     * @param key The key of the param to set.
+     * @param value The value to set the param to.
+     */
+    public setParam(key: string, value: number) {
+        this[key] = value;
+
+        // need to recalculate the projection matrix and all the other values
+        this.calcProjectionMatrix();
+
+        // update the eye positions
+        this.eyeL.position.z = -this.distEye2Display;
+        this.eyeR.position.z = -this.distEye2Display;
+
+        // update the lens positions
+        this.lensL.position.x = -this.ipd / 2;
+        this.lensL.position.z = -this.distLens2Display;
+        this.lensR.position.x = this.ipd / 2;
+        this.lensR.position.z = -this.distLens2Display;
+
+        // notify observers that the values have been updated
+        this.notifyValuesUpdated();
+    }
+
 
     /**
      * Create a view matrix for the left lens of the HMD based on the IPD.
@@ -403,25 +452,6 @@ export class HMD {
         // Update the camera positions
         this.updateEyePosition(this.camL, true);
         this.updateEyePosition(this.camR, false);
-    }
-
-    /**
-     * Update the eye meshes when eye relief changes.
-     * - this is called when the eye relief slider is changed
-     * @param newEyeRelief The new eye relief value.
-     */
-    public updateEyeRelief(newEyeRelief: number) {
-        this.eyeRelief = newEyeRelief;
-
-        // need to recalculate the projection matrix and all the other values
-        this.calcProjectionMatrix();
-
-        // update the eye positions
-        this.eyeL.position.z = -this.distEye2Display;
-        this.eyeR.position.z = -this.distEye2Display;
-
-        // notify observers that the values have been updated
-        this.notifyValuesUpdated();
     }
 
     /**

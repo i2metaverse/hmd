@@ -140,53 +140,66 @@ export class App {
         const advancedTexture = GUI.AdvancedDynamicTexture.CreateFullscreenUI('UI');
 
         // create a stack panel to hold the controls
-        const stackPanel = new GUI.StackPanel();
-        stackPanel.width = '220px';
-        stackPanel.fontSize = '14px';
-        stackPanel.horizontalAlignment = GUI.Control.HORIZONTAL_ALIGNMENT_RIGHT;
-        stackPanel.verticalAlignment = GUI.Control.VERTICAL_ALIGNMENT_CENTER;
-        advancedTexture.addControl(stackPanel);
-        //
-        // create a text block to show the eye relief value
-        const eyeReliefText = new GUI.TextBlock();
-        eyeReliefText.text = `Eye Relief: ${hmd.eyeRelief.toFixed(2)}`;
-        eyeReliefText.height = '30px';
-        eyeReliefText.color = 'white';
-        stackPanel.addControl(eyeReliefText);
+        const userPanel = new GUI.StackPanel();
+        userPanel.width = '220px';
+        userPanel.fontSize = '14px';
+        userPanel.horizontalAlignment = GUI.Control.HORIZONTAL_ALIGNMENT_RIGHT;
+        userPanel.verticalAlignment = GUI.Control.VERTICAL_ALIGNMENT_BOTTOM;
+        advancedTexture.addControl(userPanel);
 
-        // create a slider to change the eye relief
-        const eyeReliefSlider = new GUI.Slider();
-        eyeReliefSlider.minimum = 0.001;
-        eyeReliefSlider.maximum = 10.0;
-        eyeReliefSlider.value = hmd.eyeRelief;
-        eyeReliefSlider.height = '20px';
-        eyeReliefSlider.width = '200px';
-        eyeReliefSlider.color = 'red';
-        eyeReliefSlider.background = 'lightgray';
-        eyeReliefSlider.thumbColor = 'darkred';
-        eyeReliefSlider.onValueChangedObservable.add((value) => {
-            // update the eye relief value in the HMD
-            // - also updates the eye mesh positions
-            hmd.updateEyeRelief(value);
+        // padding
+        userPanel.paddingRight = '20px';
+        userPanel.paddingBottom = '20px';
+        
 
-            // update the text block to show the new eye relief value
-            eyeReliefText.text = `Eye Relief: ${hmd.eyeRelief.toFixed(2)}`;
-        });
-        stackPanel.addControl(eyeReliefSlider);
+        // create a stack of sliders, with the label and value on the left col, 
+        // and the slider on the right col, params to change include:
+        const sliders = hmd.sliderParams;
+        for (const key in sliders) {
+            if (sliders.hasOwnProperty(key)) {
+                const slider = new GUI.Slider();
+                const typedKey = key as keyof typeof sliders;
+                slider.minimum = sliders[typedKey].min;
+                slider.maximum = sliders[typedKey].max;
+                slider.value = hmd[typedKey];
+                slider.height = '20px';
+                slider.width = '200px';
+                slider.color = 'red';
+                slider.background = 'white';
+                slider.onValueChangedObservable.add((value) => {
+                    hmd.setParam(key, value)
+                });
+
+                const textBlock = new GUI.TextBlock();
+                textBlock.text = `${key}: ${slider.value.toFixed(2)}`;
+                textBlock.height = '20px';
+                textBlock.color = 'white';
+                textBlock.textHorizontalAlignment = GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
+
+                // update the text block when the slider changes
+                slider.onValueChangedObservable.add(() => {
+                    textBlock.text = `${key}: ${slider.value.toFixed(2)}`;
+                });
+
+                // add the text block and slider to the stack panel
+                userPanel.addControl(textBlock);
+                userPanel.addControl(slider);
+            }
+        }
 
         // create a list of text blocks to show all the HMD params and calculated values
         // - make them tiny and packed so they don't take up much space
         // - place them on the left of the screen
-        const paramsPanel = new GUI.StackPanel();
-        paramsPanel.width = '220px';
-        paramsPanel.fontSize = '12px';
-        paramsPanel.horizontalAlignment = GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
-        paramsPanel.verticalAlignment = GUI.Control.VERTICAL_ALIGNMENT_TOP;
-        advancedTexture.addControl(paramsPanel);
+        const statsPanel = new GUI.StackPanel();
+        statsPanel.width = '220px';
+        statsPanel.fontSize = '12px';
+        statsPanel.horizontalAlignment = GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
+        statsPanel.verticalAlignment = GUI.Control.VERTICAL_ALIGNMENT_BOTTOM;
+        advancedTexture.addControl(statsPanel);
 
         // reduce the line space between the text blocks
-        paramsPanel.paddingTop = '10px';
-        //paramsPanel.paddingBottom = '5px';
+        statsPanel.paddingBottom = '20px';
+        statsPanel.paddingLeft = '20px';
 
         // create a text block for each HMD param
         // - show the param name and value
@@ -208,8 +221,8 @@ export class App {
 
                 textBlock.height = '12px';
                 textBlock.color = 'white';
-                textBlock.horizontalAlignment = GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
-                paramsPanel.addControl(textBlock);
+                textBlock.textHorizontalAlignment = GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
+                statsPanel.addControl(textBlock);
 
                 // update the text block when the param changes
                 hmd.onValuesUpdatedObservable.add(() => {
@@ -243,8 +256,8 @@ export class App {
 
                 textBlock.height = '12px';
                 textBlock.color = 'yellow';
-                textBlock.horizontalAlignment = GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
-                paramsPanel.addControl(textBlock);
+                textBlock.textHorizontalAlignment = GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
+                statsPanel.addControl(textBlock);
 
                 // update the text block when the param changes
                 hmd.onValuesUpdatedObservable.add(() => {
