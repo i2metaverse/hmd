@@ -15,6 +15,7 @@ import {
     MeshBuilder,
     Mesh,
     Observable,
+    RenderTargetTexture,
 } from "@babylonjs/core";
 
 export class HMD {
@@ -56,13 +57,15 @@ export class HMD {
     distLens2Img = 1 / (1 / this.f - 1 / this.distLens2Display);
     distEye2Img = Math.abs(this.distLens2Img) + this.eyeRelief;
     near = this.distEye2Display;
-    far = this.near + 5;
+    far = this.near + 8;
     aspectRatio = this.displayWidth / this.displayHeight;
     fovVertical = 2 * Math.atan((this.imgHeight / 2) / this.distEye2Img);
     fovHNasal = Math.atan((this.magnification * this.ipd / 2) / this.distEye2Img);
     fovHTemporal = Math.atan((this.magnification * (this.displayWidth - this.ipd) / 2) 
                    / this.distEye2Img);
     fovHorizontal = this.fovHNasal + this.fovHTemporal;
+    eyePosL = this.pos.clone().add(new Vector3(-this.ipd / 2, 0, -this.distEye2Display)); 
+    eyePosR = this.pos.clone().add(new Vector3(this.ipd / 2, 0, -this.distEye2Display));
 
     // Calculated values for the off-axis projection
     top = this.near * this.imgHeight / (2 * this.distEye2Img);
@@ -81,8 +84,8 @@ export class HMD {
     projMatR = Matrix.Identity();
 
     // cameras for the left and right eyes
-    private camL: FreeCamera;
-    private camR: FreeCamera;
+    camL: FreeCamera;
+    camR: FreeCamera;
 
     // meshes for the display, lenses, and eyes
     // - using ! to suppress the error that the properties are not initialized
@@ -182,7 +185,15 @@ export class HMD {
         // need to recalculate the projection matrix and all the other values
         this.calcProjectionMatrix();
 
+        // update camera projection matrices
+        this.camL.freezeProjectionMatrix(this.projMatL);
+        this.camR.freezeProjectionMatrix(this.projMatR);
+
         // update the eye positions
+        this.eyePosL = this.pos.clone().add(new Vector3(-this.ipd / 2, 0, -this.distEye2Display));
+        this.eyePosR = this.pos.clone().add(new Vector3(this.ipd / 2, 0, -this.distEye2Display));
+
+        // update the eye mesh positions (these were relative to display)
         this.eyeL.position.z = -this.distEye2Display;
         this.eyeR.position.z = -this.distEye2Display;
         this.eyeL.position.x = -this.ipd / 2;
@@ -284,10 +295,14 @@ export class HMD {
         this.calcProjectionMatrix();
 
         // setup the eye cameras
-        this.camL = new FreeCamera("camL", this.pos.clone(), scene);
-        this.camR = new FreeCamera("camR", this.pos.clone(), scene);
-        this.setupEyeCams(this.camL, true);
-        this.setupEyeCams(this.camR, false);
+        this.camL = new FreeCamera("camL", this.eyePosL, scene);
+        this.camR = new FreeCamera("camR", this.eyePosR, scene);
+
+        // set the projection matrix for the cameras
+        this.camL.freezeProjectionMatrix(this.projMatL);
+        this.updateCamera2Eye(this.camL, true);
+        this.camR.freezeProjectionMatrix(this.projMatR);
+        this.updateCamera2Eye(this.camR, false);
     }
 
     /**
@@ -344,23 +359,6 @@ export class HMD {
     }
 
     /**
-     * Setup the eye cameras for the HMD.
-     * @param camera The camera to setup as an eye.
-     * @param isLeftEye Whether the camera is the left eye.
-     */
-    private setupEyeCams(camera: FreeCamera, isLeftEye: boolean): void {
-        const eyeOffset = isLeftEye ? -this.ipd / 2 : this.ipd / 2;
-        const eyePosition = this.pos.clone().add(new Vector3(eyeOffset, 0, -this.distEye2Display));
-
-        // Set camera position and projection
-        camera.position.copyFrom(eyePosition);
-        camera.setTarget(this.pos.add(new Vector3(0, 0, -1)));
-        if (isLeftEye) {
-            camera.freezeProjectionMatrix(this.projMatL);
-        }
-    }
-
-    /**
      * Calculate the projection matrix for the HMD for an eye.
      * Update the commented code above to work for either eye.
      * @param isLeftEye Whether the eye is the left eye.
@@ -400,7 +398,7 @@ export class HMD {
         // calculate the far plane distance
         // - this does not have to be exact, but should be far enough to encompass the scene
         // - for testing purposes, set it to be 5 units away from the near plane
-        this.far = this.near + 5;
+        this.far = this.near + 8;
 
         // set params for setting a camera
         // - the fov is the vertical FOV
@@ -432,6 +430,13 @@ export class HMD {
         this.leftForLeftEye = -this.distEye2Display * this.imgWidthTemporal / this.distEye2Img;
         this.rightForRightEye = this.distEye2Display * this.imgWidthTemporal / this.distEye2Img;
         this.leftForRightEye = -this.distEye2Display * this.imgWidthNasal / this.distEye2Img;
+
+        // TODO: use PerspectiveLH to create the projection matrix with projectionPlaneTilt
+        // - this is the off-axis projection matrix for the left eye
+        // calculate the projectionPlaneTilt
+        //const projectionPlaneTilt = Math.atan(this.distEye2Display / this.distEye2Img);
+        //const projMatL = Matrix.PerspectiveLH(this.rightForLeftEye - this.leftForLeftEye,
+            //this.top - this.bottom, this.near, this.far, false, );
 
         // do left eye calculations
         let x = 2 * this.near / (this.rightForLeftEye - this.leftForLeftEye);
@@ -500,9 +505,13 @@ export class HMD {
         // Update the display position
         this.display.position.copyFrom(this.pos);
 
+        // Update the eye positions
+        this.eyePosL = this.pos.clone().add(new Vector3(-this.ipd / 2, 0, -this.distEye2Display));
+        this.eyePosR = this.pos.clone().add(new Vector3(this.ipd / 2, 0, -this.distEye2Display));
+
         // Update the camera positions
-        this.updateEyePosition(this.camL, true);
-        this.updateEyePosition(this.camR, false);
+        this.updateCamera2Eye(this.camL, true);
+        this.updateCamera2Eye(this.camR, false);
     }
 
     /**
@@ -510,10 +519,16 @@ export class HMD {
      * @param camera The camera to update.
      * @param isLeftEye Whether the camera is the left eye.
      */
-    private updateEyePosition(camera: FreeCamera, isLeftEye: boolean) {
-        const eyePosition = isLeftEye ? this.eyeL.position : this.eyeR.position;
+    private updateCamera2Eye(camera: FreeCamera, isLeftEye: boolean) {
+        // update position
+        const eyePosition = isLeftEye ? this.eyePosL : this.eyePosR;
         camera.position.copyFrom(eyePosition);
-        camera.setTarget(eyePosition.add(new Vector3(0, 0, -1)));
+
+        // Override getViewMatrix to return the custom view matrix
+        const viewMatrix = isLeftEye ? this.viewMatrixL : this.viewMatrixR;
+        camera.getViewMatrix = function() {
+            return viewMatrix;
+        };
     }
 
     /**
@@ -523,4 +538,39 @@ export class HMD {
     public notifyValuesUpdated() {
         this.onValuesUpdatedObservable.notifyObservers();
     }
+
+    /**
+     * Provide the rendered scene through the eye cameras.
+     * - this will be used to render the scene in a PIP window in the UI
+     * - app will call this to render in the UI
+     * @param isLeftEye Whether to render the left eye.
+     * @returns The rendered scene as a base64 image.
+     * @see https://doc.babylonjs.com/divingDeeper/cameras/rendering_to_a_texture
+     * @see https://doc.babylonjs.com/divingDeeper/cameras/advanced_camera_options
+     */
+    //public renderScene(isLeftEye: boolean): RenderTargetTexture {
+        //// get the camera to render
+        //const camera = isLeftEye ? this.camL : this.camR;
+
+        ////// render the scene
+        ////this.scene.renderToTarget(true, camera);
+
+        ////// get the base64 image
+        ////return this.scene.getEngine().getRenderingCanvas()?.toDataURL();
+        
+        //const renderTarget = new RenderTargetTexture(
+            //"eyeRender",
+            //{ width: 512, height: 512 },
+            //this.scene,
+            //false
+        //);
+
+        ////DEBUG test camera
+        //const cam = new FreeCamera("cam", new Vector3(0, 0, 0), this.scene);
+        //cam.position = new Vector3(0, 0, -10);
+
+        //renderTarget.activeCamera = cam;
+        //this.scene.customRenderTargets.push(renderTarget);
+        //return renderTarget;
+    //}
 }

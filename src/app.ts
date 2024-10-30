@@ -51,11 +51,12 @@ import {
     ShadowGenerator,
     FreeCamera,
     Matrix,
+    Color3,
 } from "@babylonjs/core";
 import * as GUI from "@babylonjs/gui";
 import { FrustumVisualizer } from "./frustumVisualizer";
 import { HMD } from "./hmd";
-import {Frustum} from "babylonjs";
+import {AbstractMesh, CreatePlane, Frustum, Viewport} from "babylonjs";
 
 /**
  * The main class for the web application.
@@ -92,6 +93,7 @@ export class App {
         dirLight.shadowEnabled = true;
         dirLight.shadowMinZ = 1;
         dirLight.shadowMaxZ = 100;
+        dirLight.diffuse = new Color3(0.3, 0.3, 0);
 
         // create a cone to represent the light
         const cone = MeshBuilder.CreateCylinder('cone', {diameterTop: 0, diameterBottom: 0.5, height: 0.5}, scene);
@@ -110,7 +112,7 @@ export class App {
         const mat1 = new StandardMaterial('red', scene);
         mat1.diffuseColor.set(1, .3, .5);
         const mat2 = new StandardMaterial('green', scene);
-        mat2.diffuseColor.set(.5, 1, .6);
+        mat2.diffuseColor.set(.3, 1, .5);
         const mat3 = new StandardMaterial('blue', scene);
         mat3.diffuseColor.set(.3, .5, 1);
 
@@ -133,7 +135,6 @@ export class App {
         ground.material = mat2;
         ground.receiveShadows = true;
         ground.position.y = -1;
-
     }
 
     /**
@@ -143,6 +144,11 @@ export class App {
     private addUI(hmd: HMD) {
         // create a GUI
         const advancedTexture = GUI.AdvancedDynamicTexture.CreateFullscreenUI('UI');
+
+        // set layerMask so that we prevent it from being rendered by the HMD cameras
+        if (advancedTexture.layer) {
+            advancedTexture.layer.layerMask = 0x10000000;
+        }
 
         // create a stack panel to hold the controls
         const userPanel = new GUI.StackPanel();
@@ -155,7 +161,6 @@ export class App {
         // padding
         userPanel.paddingRight = '20px';
         userPanel.paddingBottom = '20px';
-        
 
         // create a stack of sliders, with the label and value on the left col, 
         // and the slider on the right col, params to change include:
@@ -340,6 +345,7 @@ export class App {
 
         // Create a user camera that can be controlled by wasd and mouse
         const camera = new FreeCamera('camera', new Vector3(10, 10, -10), scene);
+        camera.viewport = new Viewport(0, 0, 1, 1);
         camera.setTarget(Vector3.Zero());
         camera.attachControl(this.engine.getRenderingCanvas(), true);
         camera.keysUp = [87]; // W
@@ -348,11 +354,29 @@ export class App {
         camera.keysRight = [68]; // D
         camera.speed = 0.3; // slow down the camera movement
 
-        // create the scene environment
+        // set camera layerMask to be able to render GUI and the meshes
+        camera.layerMask = 0x7FFFFFFF;
+
         this.createEnvironment(scene);
 
         // Create the HMD
         const hmd = new HMD(scene);
+
+        // Create a secondary camera for the left eye view
+        const hmdCamL = hmd.camL;
+        const hmdCamR = hmd.camR;
+        const pipViewPortHeight = 0.3;
+        const pipViewPortWidth = pipViewPortHeight / hmd.aspectRatio;
+        const pipViewPortX = 1 - pipViewPortWidth*2;
+        const pipViewPortY = 1 - pipViewPortHeight;
+        hmdCamL.viewport = new Viewport(pipViewPortX, pipViewPortY, pipViewPortWidth, pipViewPortHeight); // (x, y, width, height)
+        hmdCamL.layerMask = 1; // Set the layer mask to 1
+        hmdCamR.viewport = new Viewport(pipViewPortX + pipViewPortWidth, pipViewPortY, pipViewPortWidth, pipViewPortHeight); // (x, y, width, height)
+        hmdCamR.layerMask = 1; // Set the layer mask to 1
+
+        // Ensure this secondary camera renders over the main camera
+        //scene.cameras.push(hmdCamL);
+        scene.activeCameras = [hmdCamL,hmdCamR,camera]; // Render both cameras
 
         // Add UI controls to the scene
         this.addUI(hmd);
