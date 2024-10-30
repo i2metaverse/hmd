@@ -37,6 +37,9 @@ export class FrustumVisualizer {
             scene
         );
         this.scene = scene;
+
+        // set the layer mask to not be rendered by the HMD eye cameras
+        this.frustumMesh.layerMask = 0x10000000;
     }
 
     /**
@@ -210,8 +213,8 @@ export class FrustumVisualizer {
             [corners[3], corners[7]]
         );
 
-        console.log("createFrustumLines: Lines:", lines);
-
+        //console.log("createFrustumLines: Lines:", lines);
+        
         return MeshBuilder.CreateLineSystem("frustum", { lines }, scene);
     }
 

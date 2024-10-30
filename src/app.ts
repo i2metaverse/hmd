@@ -50,13 +50,13 @@ import {
     DirectionalLight,
     ShadowGenerator,
     FreeCamera,
-    Matrix,
     Color3,
+    Viewport,
+    EventState,
 } from "@babylonjs/core";
 import * as GUI from "@babylonjs/gui";
 import { FrustumVisualizer } from "./frustumVisualizer";
 import { HMD } from "./hmd";
-import {AbstractMesh, CreatePlane, Frustum, Viewport} from "babylonjs";
 
 /**
  * The main class for the web application.
@@ -68,6 +68,12 @@ export class App {
     // make frustumVisualizerL and frustumVisualizerR global so that they can be toggled
     private frustumVisualizerL: FrustumVisualizer | undefined;
     private frustumVisualizerR: FrustumVisualizer | undefined;
+
+    // PIP viewport parameters
+    private pipViewPortHeight = 0.3;
+    private pipViewPortWidth = this.pipViewPortHeight
+    private pipViewPortX = 1 - this.pipViewPortWidth*2;
+    private pipViewPortY = 1 - this.pipViewPortHeight;
 
     /**
      * Constructor to create the App object with an engine.
@@ -82,13 +88,13 @@ export class App {
      */
     private createEnvironment(scene: Scene) {
         // create a hemispheric light
-        const hemiLight = new HemisphericLight('hemiLight', new Vector3(0, 1, 0), scene);
+        const hemiLight = new HemisphericLight('hemiLight', new Vector3(0, 1, -1), scene);
         hemiLight.intensity = 0.6;
 
         // create a directional light that will cast shadows
         // TODO: create keys to move light
         const dirLight = new DirectionalLight('dirLight', new Vector3(0, -1, -1), scene);
-        dirLight.position = new Vector3(0, 6, 0);
+        dirLight.position = new Vector3(0, 8, 0);
         dirLight.intensity = 0.3;
         dirLight.shadowEnabled = true;
         dirLight.shadowMinZ = 1;
@@ -115,6 +121,8 @@ export class App {
         mat2.diffuseColor.set(.3, 1, .5);
         const mat3 = new StandardMaterial('blue', scene);
         mat3.diffuseColor.set(.3, .5, 1);
+        const mat4 = new StandardMaterial('yellow', scene);
+        mat4.diffuseColor.set(1, 1, .5);
 
         // Create a scene with a box, torus knot, and ground plane
         const box = MeshBuilder.CreateBox('box', {size: 2}, scene);
@@ -131,6 +139,12 @@ export class App {
         tor.material = mat3;
         tor.receiveShadows = true;
         shadowGenerator.addShadowCaster(tor);
+        const geodesic = MeshBuilder.CreateGeodesic('aaa', {m: 1, n:1, size:2}, scene);
+        geodesic.position.y = 1.5;
+        geodesic.position.z = 3;
+        geodesic.material = mat4;
+        geodesic.receiveShadows = true;
+        shadowGenerator.addShadowCaster(geodesic);
         const ground = CreateGround('ground', {width: 10, height: 10}, scene);
         ground.material = mat2;
         ground.receiveShadows = true;
@@ -305,12 +319,35 @@ export class App {
 
         // Add the buttonPanel to the userPanel
         advancedTexture.addControl(buttonPanel)
+
+
+        // set border around PIP viewports using UI rectangles
+        const borderL = new GUI.Rectangle();
+        borderL.width = `${this.pipViewPortWidth * 100}%`;
+        borderL.height = `${this.pipViewPortHeight * 100}%`;
+        borderL.thickness = 2;
+        borderL.color = 'pink';
+        borderL.horizontalAlignment = GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
+        borderL.verticalAlignment = GUI.Control.VERTICAL_ALIGNMENT_TOP;
+        borderL.left = `${this.pipViewPortX * 100}%`;
+        advancedTexture.addControl(borderL);
+
+        const borderR = new GUI.Rectangle();
+        borderR.width = `${this.pipViewPortWidth * 100}%`;
+        borderR.height = `${this.pipViewPortHeight * 100}%`;
+        borderR.thickness = 2;
+        borderR.color = 'pink';
+        borderR.horizontalAlignment = GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
+        borderR.verticalAlignment = GUI.Control.VERTICAL_ALIGNMENT_TOP;
+        borderR.left = `${this.pipViewPortX * 100 + this.pipViewPortWidth * 100}%`;
+        advancedTexture.addControl(borderR);
+
     }
 
     /** Helper UI function to create toggle buttons
      */
     private createToggleButton(text: string, backgroundColor: string, 
-        onClickHandler:(eventData: GUI.Vector2WithInfo, eventState: BABYLON.EventState) => void
+        onClickHandler:(eventData: GUI.Vector2WithInfo, eventState: EventState) => void
     ) {       
         const button = new GUI.Button();
         button.width = '100px';
@@ -344,7 +381,11 @@ export class App {
         scene.clearColor.set(0.15, 0.15, 0.15, 1);
 
         // Create a user camera that can be controlled by wasd and mouse
-        const camera = new FreeCamera('camera', new Vector3(10, 10, -10), scene);
+        const camera = new FreeCamera(
+            "camera",
+            new Vector3(10, 10, -10),
+            scene
+        );
         camera.viewport = new Viewport(0, 0, 1, 1);
         camera.setTarget(Vector3.Zero());
         camera.attachControl(this.engine.getRenderingCanvas(), true);
@@ -355,7 +396,7 @@ export class App {
         camera.speed = 0.3; // slow down the camera movement
 
         // set camera layerMask to be able to render GUI and the meshes
-        camera.layerMask = 0x7FFFFFFF;
+        camera.layerMask = 0x7fffffff;
 
         this.createEnvironment(scene);
 
@@ -365,32 +406,51 @@ export class App {
         // Create a secondary camera for the left eye view
         const hmdCamL = hmd.camL;
         const hmdCamR = hmd.camR;
-        const pipViewPortHeight = 0.3;
-        const pipViewPortWidth = pipViewPortHeight / hmd.aspectRatio;
-        const pipViewPortX = 1 - pipViewPortWidth*2;
-        const pipViewPortY = 1 - pipViewPortHeight;
-        hmdCamL.viewport = new Viewport(pipViewPortX, pipViewPortY, pipViewPortWidth, pipViewPortHeight); // (x, y, width, height)
+        this.pipViewPortWidth /= hmd.aspectRatio;
+        this.pipViewPortX = 1 - this.pipViewPortWidth * 2;
+        this.pipViewPortY = 1 - this.pipViewPortHeight;
+        hmdCamL.viewport = new Viewport(
+            this.pipViewPortX,
+            this.pipViewPortY,
+            this.pipViewPortWidth,
+            this.pipViewPortHeight
+        ); // (x, y, width, height)
         hmdCamL.layerMask = 1; // Set the layer mask to 1
-        hmdCamR.viewport = new Viewport(pipViewPortX + pipViewPortWidth, pipViewPortY, pipViewPortWidth, pipViewPortHeight); // (x, y, width, height)
+        hmdCamR.viewport = new Viewport(
+            this.pipViewPortX + this.pipViewPortWidth,
+            this.pipViewPortY,
+            this.pipViewPortWidth,
+            this.pipViewPortHeight
+        ); // (x, y, width, height)
         hmdCamR.layerMask = 1; // Set the layer mask to 1
 
         // Ensure this secondary camera renders over the main camera
         //scene.cameras.push(hmdCamL);
-        scene.activeCameras = [hmdCamL,hmdCamR,camera]; // Render both cameras
+        scene.activeCameras = [hmdCamL, hmdCamR, camera]; // Render both cameras
 
         // Add UI controls to the scene
         this.addUI(hmd);
 
         // get view and transform matrices from HMD
         let transformMat = hmd.transformMatrix;
-        
+
         // Create a test view matrix that looks to the front
         //const viewMat = Matrix.LookAtLH(eyeL.position, Vector3.Zero(), Vector3.Up());
 
         // Create the frustum mesh for the eyes
         //const frustumLines = createFrustumLines(scene, projMat, viewMat, transformMat);
-        this.frustumVisualizerL = new FrustumVisualizer(hmd.projMatL, hmd.viewMatrixL, transformMat, scene);
-        this.frustumVisualizerR = new FrustumVisualizer(hmd.projMatR, hmd.viewMatrixR, transformMat, scene);
+        this.frustumVisualizerL = new FrustumVisualizer(
+            hmd.projMatL,
+            hmd.viewMatrixL,
+            transformMat,
+            scene
+        );
+        this.frustumVisualizerR = new FrustumVisualizer(
+            hmd.projMatR,
+            hmd.viewMatrixR,
+            transformMat,
+            scene
+        );
 
         // Create the scene animation
         let elapsedSecs = 0.0;
@@ -403,8 +463,16 @@ export class App {
             hmd.updatePosition(newPos);
 
             // update the frustum mesh using updated view matrices
-            this.frustumVisualizerL?.updateFrustumMesh(hmd.projMatL, hmd.viewMatrixL, transformMat);
-            this.frustumVisualizerR?.updateFrustumMesh(hmd.projMatR, hmd.viewMatrixR, transformMat);
+            this.frustumVisualizerL?.updateFrustumMesh(
+                hmd.projMatL,
+                hmd.viewMatrixL,
+                transformMat
+            );
+            this.frustumVisualizerR?.updateFrustumMesh(
+                hmd.projMatR,
+                hmd.viewMatrixR,
+                transformMat
+            );
         });
 
         // Return the scene when it is ready

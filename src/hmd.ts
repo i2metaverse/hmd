@@ -49,6 +49,7 @@ export class HMD {
     lensDiameter = .34;
     lensDepth = .05;
     eyeDiameter = .15;
+    farFromNear = 10;
 
     // Calculated values
     distEye2Display = this.eyeRelief + this.distLens2Display
@@ -57,7 +58,7 @@ export class HMD {
     distLens2Img = 1 / (1 / this.f - 1 / this.distLens2Display);
     distEye2Img = Math.abs(this.distLens2Img) + this.eyeRelief;
     near = this.distEye2Display;
-    far = this.near + 8;
+    far = this.near + this.farFromNear;
     aspectRatio = this.displayWidth / this.displayHeight;
     fovVertical = 2 * Math.atan((this.imgHeight / 2) / this.distEye2Img);
     fovHNasal = Math.atan((this.magnification * this.ipd / 2) / this.distEye2Img);
@@ -305,6 +306,13 @@ export class HMD {
         this.updateCamera2Eye(this.camL, true);
         this.camR.freezeProjectionMatrix(this.projMatR);
         this.updateCamera2Eye(this.camR, false);
+
+        // set meshes layer mask to not be rendered in the HMD eye cameras
+        this.display.layerMask = 0x10000000;
+        this.lensL.layerMask = 0x10000000;
+        this.lensR.layerMask = 0x10000000;
+        this.eyeL.layerMask = 0x10000000;
+        this.eyeR.layerMask = 0x10000000;
     }
 
     /**
@@ -400,7 +408,7 @@ export class HMD {
         // calculate the far plane distance
         // - this does not have to be exact, but should be far enough to encompass the scene
         // - for testing purposes, set it to be 5 units away from the near plane
-        this.far = this.near + 8;
+        this.far = this.near + this.farFromNear;
 
         // set params for setting a camera
         // - the fov is the vertical FOV
