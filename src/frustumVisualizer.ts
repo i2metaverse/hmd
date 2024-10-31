@@ -4,7 +4,6 @@
  * @lastUpdated 28 Oct 2024
  */
 import {
-    FreeCamera,
     Matrix,
     Mesh,
     MeshBuilder,
@@ -12,6 +11,8 @@ import {
     Vector3,
     VertexBuffer,
 } from "@babylonjs/core";
+
+import { LAYER_FRUSTUM } from "./constants";
 
 export class FrustumVisualizer {
     private frustumMesh: Mesh;
@@ -39,7 +40,7 @@ export class FrustumVisualizer {
         this.scene = scene;
 
         // set the layer mask to not be rendered by the HMD eye cameras
-        this.frustumMesh.layerMask = 0x10000000;
+        this.frustumMesh.layerMask = LAYER_FRUSTUM;
     }
 
     /**

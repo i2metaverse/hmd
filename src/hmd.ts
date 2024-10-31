@@ -15,8 +15,9 @@ import {
     MeshBuilder,
     Mesh,
     Observable,
-    RenderTargetTexture,
 } from "@babylonjs/core";
+
+import { LAYER_HMD  } from "./constants";
 
 export class HMD {
     private scene: Scene;
@@ -96,6 +97,14 @@ export class HMD {
     private lensR!: Mesh;
     private eyeL!: Mesh;
     private eyeR!: Mesh;
+
+    /**
+     * Get the aspect ratio of an eye's view.
+     * @returns The aspect ratio of an eye's view.
+     */
+    get aspectRatioEye() {
+        return (this.rightForLeftEye - this.leftForLeftEye) / (this.top - this.bottom);
+    }
 
     /**
      * Create a world transform matrix for the HMD.
@@ -308,11 +317,11 @@ export class HMD {
         this.updateCamera2Eye(this.camR, false);
 
         // set meshes layer mask to not be rendered in the HMD eye cameras
-        this.display.layerMask = 0x10000000;
-        this.lensL.layerMask = 0x10000000;
-        this.lensR.layerMask = 0x10000000;
-        this.eyeL.layerMask = 0x10000000;
-        this.eyeR.layerMask = 0x10000000;
+        this.display.layerMask = LAYER_HMD
+        this.lensL.layerMask = LAYER_HMD;
+        this.lensR.layerMask = LAYER_HMD;
+        this.eyeL.layerMask = LAYER_HMD;
+        this.eyeR.layerMask = LAYER_HMD;
     }
 
     /**

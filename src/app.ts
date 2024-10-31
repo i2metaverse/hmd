@@ -1,5 +1,4 @@
-/**
- * @file This file contains the main class for the web application.
+/** @file This file contains the main class for the web application.
  * @author your instructors
  * @lastUpdated 2024-01-04
  *
@@ -57,6 +56,7 @@ import {
 import * as GUI from "@babylonjs/gui";
 import { FrustumVisualizer } from "./frustumVisualizer";
 import { HMD } from "./hmd";
+import { LAYER_SCENE, LAYER_UI, LAYER_HMD, LAYER_FRUSTUM } from "./constants";
 
 /**
  * The main class for the web application.
@@ -70,10 +70,15 @@ export class App {
     private frustumVisualizerR: FrustumVisualizer | undefined;
 
     // PIP viewport parameters
-    private pipViewPortHeight = 0.3;
-    private pipViewPortWidth = this.pipViewPortHeight
-    private pipViewPortX = 1 - this.pipViewPortWidth*2;
-    private pipViewPortY = 1 - this.pipViewPortHeight;
+    private hmd!: HMD;
+    private pipViewPortWidth = 0.25;
+    private pipViewPortHeight!: number;
+    private pipViewPortX!: number;
+    private pipViewPortY!: number;
+
+    // set PIP viewport GUI to be global as we need to update it when the window is resized
+    private pipViewPortBorderL!: GUI.Rectangle;
+    private pipViewPortBorderR!: GUI.Rectangle;
 
     /**
      * Constructor to create the App object with an engine.
@@ -149,6 +154,12 @@ export class App {
         ground.material = mat2;
         ground.receiveShadows = true;
         ground.position.y = -1;
+
+        // set the layer mask for the objects
+        box.layerMask = LAYER_SCENE;
+        tor.layerMask = LAYER_SCENE;
+        geodesic.layerMask = LAYER_SCENE;
+        ground.layerMask = LAYER_SCENE;
     }
 
     /**
@@ -161,7 +172,7 @@ export class App {
 
         // set layerMask so that we prevent it from being rendered by the HMD cameras
         if (advancedTexture.layer) {
-            advancedTexture.layer.layerMask = 0x10000000;
+            advancedTexture.layer.layerMask = LAYER_UI;
         }
 
         // create a stack panel to hold the controls
@@ -320,27 +331,40 @@ export class App {
         // Add the buttonPanel to the userPanel
         advancedTexture.addControl(buttonPanel)
 
-
         // set border around PIP viewports using UI rectangles
-        const borderL = new GUI.Rectangle();
-        borderL.width = `${this.pipViewPortWidth * 100}%`;
-        borderL.height = `${this.pipViewPortHeight * 100}%`;
-        borderL.thickness = 2;
-        borderL.color = 'pink';
-        borderL.horizontalAlignment = GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
-        borderL.verticalAlignment = GUI.Control.VERTICAL_ALIGNMENT_TOP;
-        borderL.left = `${this.pipViewPortX * 100}%`;
-        advancedTexture.addControl(borderL);
+        this.pipViewPortBorderL = new GUI.Rectangle();        
+        this.pipViewPortBorderL.thickness = 2;
+        this.pipViewPortBorderL.color = 'pink';
+        this.pipViewPortBorderL.horizontalAlignment = GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
+        this.pipViewPortBorderL.verticalAlignment = GUI.Control.VERTICAL_ALIGNMENT_TOP;
+        this.pipViewPortBorderR = new GUI.Rectangle();
+        this.pipViewPortBorderR.thickness = 2;
+        this.pipViewPortBorderR.color = 'pink';
+        this.pipViewPortBorderR.horizontalAlignment = GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
+        this.pipViewPortBorderR.verticalAlignment = GUI.Control.VERTICAL_ALIGNMENT_TOP;
+        advancedTexture.addControl(this.pipViewPortBorderL);
+        advancedTexture.addControl(this.pipViewPortBorderR);
+        this.updatePIPViewPortBorder();
 
-        const borderR = new GUI.Rectangle();
-        borderR.width = `${this.pipViewPortWidth * 100}%`;
-        borderR.height = `${this.pipViewPortHeight * 100}%`;
-        borderR.thickness = 2;
-        borderR.color = 'pink';
-        borderR.horizontalAlignment = GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
-        borderR.verticalAlignment = GUI.Control.VERTICAL_ALIGNMENT_TOP;
-        borderR.left = `${this.pipViewPortX * 100 + this.pipViewPortWidth * 100}%`;
-        advancedTexture.addControl(borderR);
+        //const borderL = new GUI.Rectangle();
+        //borderL.width = `${this.pipViewPortWidth * 100}%`;
+        //borderL.height = `${this.pipViewPortHeight * 100}%`;
+        //borderL.thickness = 2;
+        //borderL.color = 'pink';
+        //borderL.horizontalAlignment = GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
+        //borderL.verticalAlignment = GUI.Control.VERTICAL_ALIGNMENT_TOP;
+        //borderL.left = `${this.pipViewPortX * 100}%`;
+        //advancedTexture.addControl(borderL);
+
+        //const borderR = new GUI.Rectangle();
+        //borderR.width = `${this.pipViewPortWidth * 100}%`;
+        //borderR.height = `${this.pipViewPortHeight * 100}%`;
+        //borderR.thickness = 2;
+        //borderR.color = 'pink';
+        //borderR.horizontalAlignment = GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
+        //borderR.verticalAlignment = GUI.Control.VERTICAL_ALIGNMENT_TOP;
+        //borderR.left = `${this.pipViewPortX * 100 + this.pipViewPortWidth * 100}%`;
+        //advancedTexture.addControl(borderR);
 
     }
 
@@ -380,6 +404,33 @@ export class App {
         const scene = new Scene(this.engine);
         scene.clearColor.set(0.15, 0.15, 0.15, 1);
 
+        this.createEnvironment(scene);
+
+        // Create the HMD
+        this.hmd = new HMD(scene);
+        
+        // Set the viewports for the HMD eye cameras
+        const pipViewPortWidthPixels = this.pipViewPortWidth * this.engine.getRenderWidth();
+        console.log("HMD aspect ratio for an eye:", this.hmd.aspectRatioEye);
+        const pipViewPortHeightPixels = pipViewPortWidthPixels / this.hmd.aspectRatioEye;
+        this.pipViewPortHeight = pipViewPortHeightPixels / this.engine.getRenderHeight();
+        this.pipViewPortX = 1 - this.pipViewPortWidth * 2;
+        this.pipViewPortY = 1 - this.pipViewPortHeight;
+        this.hmd.camL.viewport = new Viewport(
+            this.pipViewPortX,
+            this.pipViewPortY,
+            this.pipViewPortWidth,
+            this.pipViewPortHeight
+        ); // (x, y, width, height)
+        this.hmd.camL.layerMask = LAYER_SCENE; // Set the layer mask to 1
+        this.hmd.camR.viewport = new Viewport(
+            this.pipViewPortX + this.pipViewPortWidth,
+            this.pipViewPortY,
+            this.pipViewPortWidth,
+            this.pipViewPortHeight
+        ); // (x, y, width, height)
+        this.hmd.camR.layerMask = LAYER_SCENE; // Set the layer mask to 1
+        
         // Create a user camera that can be controlled by wasd and mouse
         const camera = new FreeCamera(
             "camera",
@@ -395,44 +446,24 @@ export class App {
         camera.keysRight = [68]; // D
         camera.speed = 0.3; // slow down the camera movement
 
-        // set camera layerMask to be able to render GUI and the meshes
-        camera.layerMask = 0x7fffffff;
+        // set camera layerMask to be able to render all
+        camera.layerMask = LAYER_SCENE | LAYER_HMD | LAYER_FRUSTUM;
 
-        this.createEnvironment(scene);
+        // set a new camera to only render the GUI so that we can set it as the top layer to be interactible
+        const guiCamera = new FreeCamera("guiCamera", Vector3.Zero(), scene);
 
-        // Create the HMD
-        const hmd = new HMD(scene);
-
-        // Create a secondary camera for the left eye view
-        const hmdCamL = hmd.camL;
-        const hmdCamR = hmd.camR;
-        this.pipViewPortWidth /= hmd.aspectRatio;
-        this.pipViewPortX = 1 - this.pipViewPortWidth * 2;
-        this.pipViewPortY = 1 - this.pipViewPortHeight;
-        hmdCamL.viewport = new Viewport(
-            this.pipViewPortX,
-            this.pipViewPortY,
-            this.pipViewPortWidth,
-            this.pipViewPortHeight
-        ); // (x, y, width, height)
-        hmdCamL.layerMask = 1; // Set the layer mask to 1
-        hmdCamR.viewport = new Viewport(
-            this.pipViewPortX + this.pipViewPortWidth,
-            this.pipViewPortY,
-            this.pipViewPortWidth,
-            this.pipViewPortHeight
-        ); // (x, y, width, height)
-        hmdCamR.layerMask = 1; // Set the layer mask to 1
+        // Set the GUI camera to only render the UI layer
+        guiCamera.layerMask = LAYER_UI;
+        guiCamera.viewport = new Viewport(0, 0, 1, 1);
 
         // Ensure this secondary camera renders over the main camera
-        //scene.cameras.push(hmdCamL);
-        scene.activeCameras = [hmdCamL, hmdCamR, camera]; // Render both cameras
+        scene.activeCameras = [camera, this.hmd.camL, this.hmd.camR, guiCamera]; // Render both cameras
 
         // Add UI controls to the scene
-        this.addUI(hmd);
+        this.addUI(this.hmd);
 
         // get view and transform matrices from HMD
-        let transformMat = hmd.transformMatrix;
+        let transformMat = this.hmd.transformMatrix;
 
         // Create a test view matrix that looks to the front
         //const viewMat = Matrix.LookAtLH(eyeL.position, Vector3.Zero(), Vector3.Up());
@@ -440,42 +471,81 @@ export class App {
         // Create the frustum mesh for the eyes
         //const frustumLines = createFrustumLines(scene, projMat, viewMat, transformMat);
         this.frustumVisualizerL = new FrustumVisualizer(
-            hmd.projMatL,
-            hmd.viewMatrixL,
+            this.hmd.projMatL,
+            this.hmd.viewMatrixL,
             transformMat,
             scene
         );
         this.frustumVisualizerR = new FrustumVisualizer(
-            hmd.projMatR,
-            hmd.viewMatrixR,
+            this.hmd.projMatR,
+            this.hmd.viewMatrixR,
             transformMat,
             scene
         );
 
-        // Create the scene animation
+        // Create the scene animation by adding an observer just before rendering
         let elapsedSecs = 0.0;
         let animSpeed = 2.0;
-        const newPos = hmd.pos.clone();
+        const newPos = this.hmd.pos.clone();
         scene.onBeforeRenderObservable.add(() => {
             // move the HMD in a sine wave oscillation to show changes in the frustum
             elapsedSecs += scene.getEngine().getDeltaTime() / 1000;
             newPos.x = Math.sin(elapsedSecs * 0.1) * animSpeed;
-            hmd.updatePosition(newPos);
+            this.hmd.updatePosition(newPos);
 
             // update the frustum mesh using updated view matrices
             this.frustumVisualizerL?.updateFrustumMesh(
-                hmd.projMatL,
-                hmd.viewMatrixL,
+                this.hmd.projMatL,
+                this.hmd.viewMatrixL,
                 transformMat
             );
             this.frustumVisualizerR?.updateFrustumMesh(
-                hmd.projMatR,
-                hmd.viewMatrixR,
+                this.hmd.projMatR,
+                this.hmd.viewMatrixR,
                 transformMat
             );
         });
 
         // Return the scene when it is ready
         return scene;
+    }
+
+    /**
+     * Update HMD eye camera viewports when the window (browser) is resized.
+     */
+    updateHMDEyeCameraViewports() {
+        // calculate the PIP viewport parameters
+        const pipViewPortWidthPixels = this.pipViewPortWidth * this.engine.getRenderWidth();
+        console.log("HMD aspect ratio for an eye:", this.hmd.aspectRatioEye);
+        const pipViewPortHeightPixels = pipViewPortWidthPixels / this.hmd.aspectRatioEye;
+        this.pipViewPortHeight = pipViewPortHeightPixels / this.engine.getRenderHeight();
+        this.pipViewPortX = 1 - this.pipViewPortWidth * 2;
+        this.pipViewPortY = 1 - this.pipViewPortHeight;
+
+        // set the new viewport parameters
+        this.hmd.camL.viewport.width = this.pipViewPortWidth;
+        this.hmd.camL.viewport.height = this.pipViewPortHeight;
+        this.hmd.camL.viewport.x = this.pipViewPortX;
+        this.hmd.camL.viewport.y = this.pipViewPortY;
+        this.hmd.camR.viewport.width = this.pipViewPortWidth;
+        this.hmd.camR.viewport.height = this.pipViewPortHeight;
+        this.hmd.camR.viewport.x = this.pipViewPortX + this.pipViewPortWidth;
+        this.hmd.camR.viewport.y = this.pipViewPortY;
+
+        // update the PIP viewport border
+        this.updatePIPViewPortBorder();
+    }
+
+    /**
+     * Update the PIP viewport border when the window (browser) is resized.
+     */
+    updatePIPViewPortBorder() {
+        this.pipViewPortBorderL.width = `${this.pipViewPortWidth * 100}%`;
+        this.pipViewPortBorderL.height = `${this.pipViewPortHeight * 100}%`;
+        this.pipViewPortBorderL.left = `${this.pipViewPortX * 100}%`;
+
+        this.pipViewPortBorderR.width = `${this.pipViewPortWidth * 100}%`;
+        this.pipViewPortBorderR.height = `${this.pipViewPortHeight * 100}%`;
+        this.pipViewPortBorderR.left = `${this.pipViewPortX * 100 + this.pipViewPortWidth * 100}%`;
     }
 }
