@@ -240,40 +240,40 @@ export class App {
         // - show the param name and value
         // - dynamically update the value when the param changes
         // TODO: the updating is very inefficient, but it's fine for now
-        let displayParams = hmd.displayParams;
-        for (const key in displayParams) {
-            if (displayParams.hasOwnProperty(key)) {
-                const textBlock = new GUI.TextBlock();
-                const typedKey = key as keyof typeof displayParams;
-                const value = displayParams[typedKey];
+        //let displayParams = hmd.displayParams;
+        //for (const key in displayParams) {
+            //if (displayParams.hasOwnProperty(key)) {
+                //const textBlock = new GUI.TextBlock();
+                //const typedKey = key as keyof typeof displayParams;
+                //const value = displayParams[typedKey];
 
-                // Ensure the value is numeric before using .toFixed(2)
-                if (typeof value === 'number') {
-                    textBlock.text = `${key}: ${value.toFixed(2)}`;
-                } else {
-                    textBlock.text = `${key}: ${value}`;
-                }
+                //// Ensure the value is numeric before using .toFixed(2)
+                //if (typeof value === 'number') {
+                    //textBlock.text = `${key}: ${value.toFixed(2)}`;
+                //} else {
+                    //textBlock.text = `${key}: ${value}`;
+                //}
 
-                textBlock.height = '12px';
-                textBlock.color = 'white';
-                textBlock.textHorizontalAlignment = GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
-                statsPanel.addControl(textBlock);
+                //textBlock.height = '12px';
+                //textBlock.color = 'white';
+                //textBlock.textHorizontalAlignment = GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
+                //statsPanel.addControl(textBlock);
 
-                // update the text block when the param changes
-                hmd.onValuesUpdatedObservable.add(() => {
-                    // fetch the latest value
-                    displayParams = hmd.displayParams;
+                //// update the text block when the param changes
+                //hmd.onValuesUpdatedObservable.add(() => {
+                    //// fetch the latest value
+                    //displayParams = hmd.displayParams;
 
-                    // Ensure the value is numeric before using .toFixed(2)
-                    const value = displayParams[typedKey];
-                    if (typeof value === 'number') {
-                        textBlock.text = `${key}: ${value.toFixed(2)}`;
-                    } else {
-                        textBlock.text = `${key}: ${value}`;
-                    }
-                });
-            }
-        }
+                    //// Ensure the value is numeric before using .toFixed(2)
+                    //const value = displayParams[typedKey];
+                    //if (typeof value === 'number') {
+                        //textBlock.text = `${key}: ${value.toFixed(2)}`;
+                    //} else {
+                        //textBlock.text = `${key}: ${value}`;
+                    //}
+                //});
+            //}
+        //}
 
         let displayCalculatedVals = hmd.displayCalculatedVals;
         for (const key in displayCalculatedVals) {
@@ -325,6 +325,7 @@ export class App {
             this.frustumVisualizerR?.toggleVisibility();
         });
 
+        // Add frustum togglers
         buttonPanel.addControl(toggleFrustumL);
         buttonPanel.addControl(toggleFrustumR);
 
@@ -346,25 +347,34 @@ export class App {
         advancedTexture.addControl(this.pipViewPortBorderR);
         this.updatePIPViewPortBorder();
 
-        //const borderL = new GUI.Rectangle();
-        //borderL.width = `${this.pipViewPortWidth * 100}%`;
-        //borderL.height = `${this.pipViewPortHeight * 100}%`;
-        //borderL.thickness = 2;
-        //borderL.color = 'pink';
-        //borderL.horizontalAlignment = GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
-        //borderL.verticalAlignment = GUI.Control.VERTICAL_ALIGNMENT_TOP;
-        //borderL.left = `${this.pipViewPortX * 100}%`;
-        //advancedTexture.addControl(borderL);
+        // add some textual instructions on top left to use WASD and mouse to move the camera
+        const instructions = new GUI.TextBlock();
+        instructions.text = 'WASD and mouse to move camera';
+        instructions.color = 'white';
+        instructions.fontSize = '14px';
+        instructions.top = '200px';
+        instructions.left = '20px';
+        instructions.width = '235px';
+        instructions.height = '30px';
+        instructions.horizontalAlignment = GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
+        instructions.verticalAlignment = GUI.Control.VERTICAL_ALIGNMENT_TOP;
 
-        //const borderR = new GUI.Rectangle();
-        //borderR.width = `${this.pipViewPortWidth * 100}%`;
-        //borderR.height = `${this.pipViewPortHeight * 100}%`;
-        //borderR.thickness = 2;
-        //borderR.color = 'pink';
-        //borderR.horizontalAlignment = GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
-        //borderR.verticalAlignment = GUI.Control.VERTICAL_ALIGNMENT_TOP;
-        //borderR.left = `${this.pipViewPortX * 100 + this.pipViewPortWidth * 100}%`;
-        //advancedTexture.addControl(borderR);
+        // add a background to the instructions
+        const instructionsBackground = new GUI.Rectangle();
+        instructionsBackground.background = 'red'; // dark red
+        instructionsBackground.alpha = 0.1;
+        instructionsBackground.thickness = 2;
+        instructionsBackground.width = instructions.width;
+        instructionsBackground.height = instructions.height;
+        instructionsBackground.top = instructions.top;
+        instructionsBackground.left = instructions.left;
+        instructionsBackground.paddingLeft = instructions.paddingLeft;
+        instructionsBackground.horizontalAlignment = instructions.horizontalAlignment;
+        instructionsBackground.verticalAlignment = instructions.verticalAlignment;
+        instructionsBackground.cornerRadius = 3;
+        advancedTexture.addControl(instructionsBackground);
+        advancedTexture.addControl(instructions);
+
 
     }
 
