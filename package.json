@@ -18,8 +18,9 @@
     "author": "",
     "license": "ISC",
     "dependencies": {
-        "@babylonjs/core": "^7.30.0",
+        "@babylonjs/core": "^7.32.0",
         "@babylonjs/gui": "^7.31.0",
+        "@babylonjs/loaders": "^7.32.0",
         "@babylonjs/materials": "^7.30.0",
         "babylonjs": "^7.28.0"
     },

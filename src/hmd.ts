@@ -39,7 +39,7 @@ export class HMD {
      * TODO: think about whether eyeRelief should be > f so that the 
      *   virtual image is on the same side as the object
      */
-    pos = new Vector3(0, 2, -5);
+    pos = new Vector3(0, 1, -5);
     f = .4;
     ipd = .6;
     eyeRelief = .18;

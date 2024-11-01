@@ -52,7 +52,10 @@ import {
     Color3,
     Viewport,
     EventState,
+    SceneLoader,
+    Mesh,
 } from "@babylonjs/core";
+import { SPLATFileLoader } from "@babylonjs/loaders";
 import * as GUI from "@babylonjs/gui";
 import { FrustumVisualizer } from "./frustumVisualizer";
 import { HMD } from "./hmd";
@@ -86,12 +89,15 @@ export class App {
      */
     constructor(engine: Engine) {
         this.engine = engine;
+
+        // register the SPLATFileLoader plugin
+        SceneLoader.RegisterPlugin(new SPLATFileLoader());
     }
     
     /**
-     * Construct a mock environment.
+     * Construct a environment based on primitives
      */
-    private createEnvironment(scene: Scene) {
+    private loadPrimitives(scene: Scene) {
         // create a hemispheric light
         const hemiLight = new HemisphericLight('hemiLight', new Vector3(0, 1, -1), scene);
         hemiLight.intensity = 0.6;
@@ -414,7 +420,8 @@ export class App {
         const scene = new Scene(this.engine);
         scene.clearColor.set(0.15, 0.15, 0.15, 1);
 
-        this.createEnvironment(scene);
+        //this.loadPrimitives(scene);
+        this.loadGaussianSplat(scene);
 
         // Create the HMD
         this.hmd = new HMD(scene);
@@ -441,7 +448,7 @@ export class App {
         // Create a user camera that can be controlled by wasd and mouse
         const camera = new FreeCamera(
             "camera",
-            new Vector3(10, 10, -10),
+            new Vector3(5, 5, -10),
             scene
         );
         camera.viewport = new Viewport(0, 0, 1, 1);
@@ -515,6 +522,44 @@ export class App {
 
         // Return the scene when it is ready
         return scene;
+    }
+
+    /**
+     * Add a gaussian splat to the scene.
+     * @param scene The scene to add the Gaussian Splat to.
+     */
+    private loadGaussianSplat(scene: Scene) {
+        // create a hemispheric light
+        const hemiLight = new HemisphericLight('hemiLight', new Vector3(0, 1, 0), scene);
+        hemiLight.intensity = 0.6;
+
+        // Load the Gaussian Splat mesh locally
+        SceneLoader.ImportMesh(
+            "",
+            "assets/",
+            //"Halo_Believe.splat",
+            "gs_Fire_Pit.splat",
+            scene,
+            (meshes) => {
+                // Set the position of the Gaussian Splat
+                const mesh = meshes[0];
+                mesh.position = new Vector3(0, 1.5, 0);
+                mesh.layerMask = LAYER_SCENE;
+            }
+        );
+
+        //SceneLoader.ImportMeshAsync(
+            //"splat", 
+            //"https://assets.babylonjs.com/splats/", 
+            //"gs_Fire_Pit.splat", 
+            //scene)
+            //.then((result) => {
+                //// Set the position of the Gaussian Splat
+                //result.meshes[0].position = new Vector3(0, 0, 0);
+
+                //// Set the layer mask for the Gaussian Splat
+                //result.meshes[0].layerMask = LAYER_SCENE;
+            //});
     }
 
     /**
