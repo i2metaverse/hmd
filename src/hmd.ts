@@ -295,10 +295,6 @@ export class HMD {
         children.forEach((child) => {
             child.setParent(this.display);
         });
-
-        // DEBUG
-        console.log("after changing view matrix, camL view matrix is: ")
-        console.log(this.camL.getViewMatrix().toString());
     }
 
     /**
@@ -318,28 +314,16 @@ export class HMD {
         this.updateEyePos();
 
         // setup the eye cameras
-        console.log("before changing view matrix, eyePosL is");
-        console.log(this.eyePosL.toString());
         this.camL = new FreeCamera("camL", this.eyePosL, scene);
         this.camR = new FreeCamera("camR", this.eyePosR, scene);
-
-        console.log("before changing view matrix, camL position is: ")
-        console.log(this.camL.position.toString());
-
-        console.log("before changing view matrix, camL view matrix is: ")
-        console.log(this.camL.getViewMatrix().toString());
 
         // set eye cameras to render only the scene
         this.camL.layerMask = LAYER_SCENE;
         this.camR.layerMask = LAYER_SCENE;
 
         // set the projection matrix for the cameras
-        console.log("before freeze, proj mat R is: ")
-        console.log(this.camR.getProjectionMatrix().toString());
         this.camL.freezeProjectionMatrix(this.projMatL);
         this.camR.freezeProjectionMatrix(this.projMatR);
-        console.log("after freeze, proj mat R is: ")
-        console.log(this.camR.getProjectionMatrix().toString());
         this.updateCamera2Eye(this.camL, true);
         this.updateCamera2Eye(this.camR, false);
 
@@ -349,7 +333,7 @@ export class HMD {
         this.lensR.layerMask = LAYER_HMD;
         this.eyeL.layerMask = LAYER_HMD;
         this.eyeR.layerMask = LAYER_HMD;
-        this.virtualImg.layerMask = LAYER_HMD;
+        //this.virtualImg.layerMask = LAYER_HMD;
     }
 
     /**
@@ -404,16 +388,15 @@ export class HMD {
         this.eyeR.position.x += this.ipd / 2;
         this.eyeR.position.z -= this.distEye2Display;
 
-        // create a virtual image mesh
-        const imgWidth = 2 * (this.imgWidthNasal + this.imgWidthTemporal);
-        this.virtualImg = MeshBuilder.CreatePlane('virtualImg',
-            { width: imgWidth, height: this.imgHeight }, this.scene);
-        //this.virtualImg.enableEdgesRendering();
-        //this.virtualImg.edgesWidth = 1;
-        this.virtualImg.visibility = 0.1;
-        this.virtualImg.parent = this.display;
-        this.virtualImg.position.z = (this.distEye2Img - this.distEye2Display);
-        console.log(this.distEye2Img)
+        //// create a virtual image mesh
+        //const imgWidth = 2 * (this.imgWidthNasal + this.imgWidthTemporal);
+        //this.virtualImg = MeshBuilder.CreatePlane('virtualImg',
+            //{ width: imgWidth, height: this.imgHeight }, this.scene);
+        ////this.virtualImg.enableEdgesRendering();
+        ////this.virtualImg.edgesWidth = 1;
+        //this.virtualImg.visibility = 0.1;
+        //this.virtualImg.parent = this.display;
+        //this.virtualImg.position.z = (this.distEye2Img - this.distEye2Display);
     }
 
     /**

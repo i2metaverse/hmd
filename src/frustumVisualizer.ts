@@ -185,9 +185,6 @@ export class FrustumVisualizer {
             transformMat
         );
 
-        // DEBUG: show the corners
-        console.log("createFrustumLines: Frustum corners:", corners);
-
         const lines = [];
 
         // Connect near plane
@@ -213,8 +210,6 @@ export class FrustumVisualizer {
             [corners[2], corners[6]],
             [corners[3], corners[7]]
         );
-
-        //console.log("createFrustumLines: Lines:", lines);
         
         return MeshBuilder.CreateLineSystem("frustum", { lines }, scene);
     }

@@ -421,7 +421,6 @@ export class App {
         
         // Set the viewports for the HMD eye cameras
         const pipViewPortWidthPixels = this.pipViewPortWidth * this.engine.getRenderWidth();
-        console.log("HMD aspect ratio for an eye:", this.hmd.aspectRatioEye);
         const pipViewPortHeightPixels = pipViewPortWidthPixels / this.hmd.aspectRatioEye;
         this.pipViewPortHeight = pipViewPortHeightPixels / this.engine.getRenderHeight();
         this.pipViewPortX = 1 - this.pipViewPortWidth * 2;
@@ -524,7 +523,6 @@ export class App {
     updateHMDEyeCameraViewports() {
         // calculate the PIP viewport parameters
         const pipViewPortWidthPixels = this.pipViewPortWidth * this.engine.getRenderWidth();
-        console.log("HMD aspect ratio for an eye:", this.hmd.aspectRatioEye);
         const pipViewPortHeightPixels = pipViewPortWidthPixels / this.hmd.aspectRatioEye;
         this.pipViewPortHeight = pipViewPortHeightPixels / this.engine.getRenderHeight();
         this.pipViewPortX = 1 - this.pipViewPortWidth * 2;
