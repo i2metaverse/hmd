@@ -17,7 +17,7 @@ import {
     Observable,
 } from "@babylonjs/core";
 
-import { LAYER_HMD  } from "./constants";
+import { LAYER_HMD, LAYER_SCENE } from "./constants";
 
 export class HMD {
     private scene: Scene;
@@ -43,7 +43,7 @@ export class HMD {
     f = .4;
     ipd = .6;
     eyeRelief = .18;
-    distLens2Display = .41;
+    distLens2Display = .39;
     displayWidth = 1.2096;
     displayHeight = .6803;
     displayDepth = .05;
@@ -53,33 +53,30 @@ export class HMD {
     farFromNear = 10;
 
     // Calculated values
-    distEye2Display = this.eyeRelief + this.distLens2Display
-    magnification = this.f / (this.f - this.distLens2Display);
-    imgHeight = this.displayHeight * this.magnification;
-    distLens2Img = 1 / (1 / this.f - 1 / this.distLens2Display);
-    distEye2Img = Math.abs(this.distLens2Img) + this.eyeRelief;
-    near = this.distEye2Display;
-    far = this.near + this.farFromNear;
-    aspectRatio = this.displayWidth / this.displayHeight;
-    fovVertical = 2 * Math.atan((this.imgHeight / 2) / this.distEye2Img);
-    fovHNasal = Math.atan((this.magnification * this.ipd / 2) / this.distEye2Img);
-    fovHTemporal = Math.atan((this.magnification * (this.displayWidth - this.ipd) / 2) 
-                   / this.distEye2Img);
-    fovHorizontal = this.fovHNasal + this.fovHTemporal;
-    eyePosL = this.pos.clone().add(new Vector3(-this.ipd / 2, 0, -this.distEye2Display)); 
-    eyePosR = this.pos.clone().add(new Vector3(this.ipd / 2, 0, -this.distEye2Display));
+    distEye2Display!: number;
+    magnification!: number;
+    imgHeight!: number;
+    distLens2Img!: number;
+    distEye2Img!: number;
+    near!: number;
+    far!: number;
+    aspectRatio!: number;
+    fovVertical!: number;
+    fovHNasal!: number;
+    fovHTemporal!: number;
+    fovHorizontal!: number;
+    eyePosL!: Vector3;
+    eyePosR!: Vector3;
 
     // Calculated values for the off-axis projection
-    top = this.near * this.imgHeight / (2 * this.distEye2Img);
-    bottom = -this.top;
-    imgWidthNasal = this.magnification * this.ipd / 2;
-    imgWidthTemporal = this.magnification * (this.displayWidth - this.ipd) / 2;
-
-    rightForLeftEye = this.distEye2Display * this.imgWidthNasal / this.distEye2Img;
-    leftForLeftEye = -this.distEye2Display * this.imgWidthTemporal / this.distEye2Img
-
-    rightForRightEye = this.distEye2Display * this.imgWidthTemporal / this.distEye2Img;
-    leftForRightEye = -this.distEye2Display * this.imgWidthNasal / this.distEye2Img;
+    top!: number;
+    bottom!: number;
+    imgWidthNasal!: number;
+    imgWidthTemporal!: number;
+    rightForLeftEye!: number;
+    leftForLeftEye!: number;
+    rightForRightEye!: number;
+    leftForRightEye!: number;
 
     // cache the projection matrix
     projMatL = Matrix.Identity();
@@ -98,6 +95,9 @@ export class HMD {
     private eyeL!: Mesh;
     private eyeR!: Mesh;
 
+    // mesh for the virtual image
+    private virtualImg!: Mesh;
+
     /**
      * Get the aspect ratio of an eye's view.
      * @returns The aspect ratio of an eye's view.
@@ -112,6 +112,37 @@ export class HMD {
      */
     get transformMatrix() {
         return Matrix.Translation(this.pos.x, this.pos.y, this.pos.z);
+    }
+
+    /**
+     * Create a view matrix for the left lens of the HMD based on the IPD.
+     * @returns The view matrix for the left lens of the HMD.
+     *
+     */
+    get viewMatrixL() {
+        return this.getViewMatrix(true);
+    }
+
+    /**
+     * Create a view matrix for the right lens of the HMD based on the IPD.
+     * @returns The view matrix for the right lens of the HMD.
+     */
+    get viewMatrixR() {
+        return this.getViewMatrix(false);
+    }
+
+    /*
+     * Helper for the above getters of view matrices.
+     * - use a lookat point straight in front of the lens as the target
+     * @param isLeftEye Whether the eye is the left eye.
+     * @returns The view matrix for the eye.
+     */
+    private getViewMatrix(isLeftEye: boolean) {
+        const eyePos = isLeftEye ? this.eyePosL : this.eyePosR;
+        const lookAtPoint = eyePos.clone().add(new Vector3(0, 0, 1)); 
+        const up = Vector3.Up();
+        const viewMat = Matrix.LookAtLH(eyePos, lookAtPoint, up);
+        return viewMat;
     }
 
     /**
@@ -200,8 +231,7 @@ export class HMD {
         this.camR.freezeProjectionMatrix(this.projMatR);
 
         // update the eye positions
-        this.eyePosL = this.pos.clone().add(new Vector3(-this.ipd / 2, 0, -this.distEye2Display));
-        this.eyePosR = this.pos.clone().add(new Vector3(this.ipd / 2, 0, -this.distEye2Display));
+        this.updateEyePos();
 
         // update the eye mesh positions (these were relative to display)
         this.eyeL.position.z = -this.distEye2Display;
@@ -210,16 +240,26 @@ export class HMD {
         this.eyeR.position.x = this.ipd / 2;
 
         // update the lens positions
-        this.lensL.position.x = -this.ipd / 2;
         this.lensL.position.z = -this.distLens2Display;
-        this.lensR.position.x = this.ipd / 2;
         this.lensR.position.z = -this.distLens2Display;
+        this.lensL.position.x = -this.ipd / 2;
+        this.lensR.position.x = this.ipd / 2;
 
         // update the display size with affecting the children
         this.updateDisplaySize();
 
         // notify observers that the values have been updated
         this.notifyValuesUpdated();
+
+    }
+
+    /**
+     * Update the eye positions based on the IPD and eye relief.
+     * - this is called when the IPD or eye relief is changed
+     */
+    private updateEyePos() {
+        this.eyePosL = this.pos.clone().add(new Vector3(-this.ipd / 2, 0, -this.distEye2Display));
+        this.eyePosR = this.pos.clone().add(new Vector3(this.ipd / 2, 0, -this.distEye2Display));
     }
 
     /**
@@ -255,41 +295,10 @@ export class HMD {
         children.forEach((child) => {
             child.setParent(this.display);
         });
-    }
 
-
-    /**
-     * Create a view matrix for the left lens of the HMD based on the IPD.
-     * - use a lookat point in front of the lens as the target to create a rotation
-     * @returns The view matrix for the left lens of the HMD.
-     *
-     * TODO: not sure why the lookat point needs to be behind the lens, 
-     *       and the up vector needs to be down for the
-     *       frustum to be rotated correctly after f > distLens2Display
-     */
-    get viewMatrixL() {
-        const leftEyePos = this.pos.clone();
-        leftEyePos.x -= this.ipd / 2;
-        leftEyePos.z -= this.distEye2Display;
-        const lookAtPoint = leftEyePos.clone();
-        const up = Vector3.Up();
-        lookAtPoint.z -= 1;
-        return Matrix.LookAtLH(leftEyePos, lookAtPoint, up);
-    }
-
-    /**
-     * Create a view matrix for the right lens of the HMD based on the IPD.
-     * - use a lookat point in front of the lens as the target to create a rotation
-     * @returns The view matrix for the right lens of the HMD.
-     */
-    get viewMatrixR() {
-        const rightEyePos = this.pos.clone();
-        rightEyePos.x += this.ipd / 2;
-        rightEyePos.z -= this.distEye2Display;
-        const lookAtPoint = rightEyePos.clone();
-        const up = Vector3.Up();
-        lookAtPoint.z -= 1;
-        return Matrix.LookAtLH(rightEyePos, lookAtPoint, up);
+        // DEBUG
+        console.log("after changing view matrix, camL view matrix is: ")
+        console.log(this.camL.getViewMatrix().toString());
     }
 
     /**
@@ -299,21 +308,39 @@ export class HMD {
     constructor(scene: Scene) {
         this.scene = scene;
         
+        // do first calculation of the projection matrix as it is needed
+        this.calcProjectionMatrix();
+        
         // setup the meshes for the HMD
         this.setupMeshes();
-        
-        // do first calculation of the projection matrix as it is needed
-        // for the cameras
-        this.calcProjectionMatrix();
+
+        // update eye positions
+        this.updateEyePos();
 
         // setup the eye cameras
+        console.log("before changing view matrix, eyePosL is");
+        console.log(this.eyePosL.toString());
         this.camL = new FreeCamera("camL", this.eyePosL, scene);
         this.camR = new FreeCamera("camR", this.eyePosR, scene);
 
+        console.log("before changing view matrix, camL position is: ")
+        console.log(this.camL.position.toString());
+
+        console.log("before changing view matrix, camL view matrix is: ")
+        console.log(this.camL.getViewMatrix().toString());
+
+        // set eye cameras to render only the scene
+        this.camL.layerMask = LAYER_SCENE;
+        this.camR.layerMask = LAYER_SCENE;
+
         // set the projection matrix for the cameras
+        console.log("before freeze, proj mat R is: ")
+        console.log(this.camR.getProjectionMatrix().toString());
         this.camL.freezeProjectionMatrix(this.projMatL);
-        this.updateCamera2Eye(this.camL, true);
         this.camR.freezeProjectionMatrix(this.projMatR);
+        console.log("after freeze, proj mat R is: ")
+        console.log(this.camR.getProjectionMatrix().toString());
+        this.updateCamera2Eye(this.camL, true);
         this.updateCamera2Eye(this.camR, false);
 
         // set meshes layer mask to not be rendered in the HMD eye cameras
@@ -375,6 +402,16 @@ export class HMD {
         this.eyeR.parent = this.display;
         this.eyeR.position.x += this.ipd / 2;
         this.eyeR.position.z -= this.distEye2Display;
+
+        // create a virtual image mesh
+        //const imgWidth = 2 * (this.imgWidthNasal + this.imgWidthTemporal);
+        //this.virtualImg = MeshBuilder.CreatePlane('virtualImg',
+            //{ width: imgWidth, height: this.imgHeight }, this.scene);
+        ////this.virtualImg.enableEdgesRendering();
+        ////this.virtualImg.edgesWidth = 1;
+        //this.virtualImg.visibility = 0.3;
+        //this.virtualImg.parent = this.display;
+        //this.virtualImg.position.z = (this.distEye2Img - this.distEye2Display);
     }
 
     /**
@@ -393,22 +430,26 @@ export class HMD {
         // - note that if f < distLens2Display, then it will be -ve
         // - else it will be +ve
         // - when f = distLens2Display, the magFactor will be infinite
-        this.magnification = this.f / (this.f - this.distLens2Display);
+        // - make magnification abs for calculations
+        this.magnification = Math.abs(this.f / (this.f - this.distLens2Display));
 
         // calculate the full height of the virtual image for the particular eye
         this.imgHeight = this.displayHeight * this.magnification;
+
+        // aspect ratio just for display info
+        this.aspectRatio = this.displayWidth / this.displayHeight;
 
         // calculate the distance from the lens to the virtual image
         // - for HMD, the f needs to be > distLens2Display (or the object distance)
         // - this results in a -ve value for distLens2Img 
         //   which means the virtual image is on the same side as the object
         // - this is similar to a magnifying glass (as opposed to a projector)
-        this.distLens2Img = 1 / (1 / this.f - 1 / this.distLens2Display);
+        // - make distLens2Img abs for calculations
+        this.distLens2Img = Math.abs(1 / (1 / this.f - 1 / this.distLens2Display));
 
         // calculate the distance from the eye to the virtual image
-        // - make distLens2Img abs for calculations
         // - it is -ve in conceptual terms
-        this.distEye2Img = Math.abs(this.distLens2Img) + this.eyeRelief;
+        this.distEye2Img = this.distLens2Img + this.eyeRelief;
 
         // calculate the near plane distance
         // - this should start at minimum the position of the display
@@ -450,27 +491,45 @@ export class HMD {
         this.rightForRightEye = this.distEye2Display * this.imgWidthTemporal / this.distEye2Img;
         this.leftForRightEye = -this.distEye2Display * this.imgWidthNasal / this.distEye2Img;
 
-        // TODO: use PerspectiveLH to create the projection matrix with projectionPlaneTilt
-        // - this is the off-axis projection matrix for the left eye
-        // calculate the projectionPlaneTilt
+        ////////////////////////////////
+        // Off-axis projection matrix //
+        // This means we need to calculate the projection matrix manually due to the asymmetry
+        // of the horizontal frustum for the left and right eyes.
+        // The general form of the projection matrix for RHS in OpenGL is:
+        // | 2n/(r-l)     0            0            0   |
+        // | 0            2n/(t-b)     0            0   |
+        // | (r+l)/(r-l)  (t+b)/(t-b)  -(f+n)/(f-n) -1  |
+        // | 0            0            -2fn/(f-n)   0   |
+        // HOWEVER and HOWEVER (yes this took me ages to debug)...
+        // In Babylon.js, it is LHS axes, the the matrix becomes:
+        // | 2n/(r-l)     0            0            0   |
+        // | 0            2n/(t-b)     0            0   |
+        // | (r+l)/(r-l)  (t+b)/(t-b)  (f+n)/(f-n)  1   |
+        // | 0            0            -2fn/(f-n)   0   |
+        // https://www.scratchapixel.com/lessons/3d-basic-rendering/perspective-and-orthographic-projection-matrix/opengl-perspective-projection-matrix.html
+        // The code is adapted from THREE.js's Matrix4.makePerspective function but with the
+        // signs changed to match Babylon.js's LHS axes.
+
+        // TODO: try to use PerspectiveLH to create the projection matrix with projectionPlaneTilt
+        //       - calculate the projectionPlaneTilt
         //const projectionPlaneTilt = Math.atan(this.distEye2Display / this.distEye2Img);
         //const projMatL = Matrix.PerspectiveLH(this.rightForLeftEye - this.leftForLeftEye,
-            //this.top - this.bottom, this.near, this.far, false, );
+        //                 this.top - this.bottom, this.near, this.far, false);
 
         // do left eye calculations
         let x = 2 * this.near / (this.rightForLeftEye - this.leftForLeftEye);
         const y = 2 * this.near / (this.top - this.bottom);
         let a = (this.rightForLeftEye + this.leftForLeftEye) / (this.rightForLeftEye - this.leftForLeftEye);
         const b = (this.top + this.bottom) / (this.top - this.bottom);
-        const c = -(this.far + this.near) / (this.far - this.near);
+        const c = (this.far + this.near) / (this.far - this.near);
         const d = (-2 * this.far * this.near) / (this.far - this.near);
         // if ( coordinateSystem === WebGPUCoordinateSystem ) 
-        //c = - far / ( far - near );
-        //d = ( - far * near ) / ( far - near );
+        //     c = - far / ( far - near );
+        //     d = ( - far * near ) / ( far - near );
         this.projMatL = Matrix.FromValues(
             x, 0, 0, 0,
             0, y, 0, 0,
-            a, b, c, -1,
+            a, b, c, 1,
             0, 0, d, 0
         );
 
@@ -480,36 +539,9 @@ export class HMD {
         this.projMatR = Matrix.FromValues(
             x, 0, 0, 0,
             0, y, 0, 0,
-            a, b, c, -1,
+            a, b, c, 1,
             0, 0, d, 0
         );
-
-        //if (DEBUG) {
-            //console.log("----------------------------------");
-            //console.log("HMD PARAMETERS");
-            //console.log("ipd:", this.ipd);
-            //console.log("eyeRelief:", this.eyeRelief);
-            //console.log("f:", this.f);
-            //console.log("distLens2Display:", this.distLens2Display);
-            //console.log("distEye2Display:", this.distEye2Display);
-            //console.log("displayWidth:", this.displayWidth);
-            //console.log("displayHeight:", this.displayHeight);
-            //console.log("aspectRatio:", this.aspectRatio);
-            //console.log("----------------------------------");
-            //console.log("CALCULATED OTHER VALUES");
-            //console.log("magFactor:", magnification);
-            //console.log("imgHeight:", imgHeight);
-            //console.log("distLens2Img:", distLens2Img);
-            //console.log("distEye2Img:", distEye2Img);
-            //console.log("----------------------------------");
-            //console.log("NEAR AND FAR PLANES");
-            //console.log("near:", near);
-            //console.log("far:", far);
-            //console.log("----------------------------------");
-            //console.log("PROJECTION MATRIX");
-            //console.log(projMat);
-            //console.log("----------------------------------");
-        //}
     }
 
     /**
@@ -525,8 +557,7 @@ export class HMD {
         this.display.position.copyFrom(this.pos);
 
         // Update the eye positions
-        this.eyePosL = this.pos.clone().add(new Vector3(-this.ipd / 2, 0, -this.distEye2Display));
-        this.eyePosR = this.pos.clone().add(new Vector3(this.ipd / 2, 0, -this.distEye2Display));
+        this.updateEyePos();
 
         // Update the camera positions
         this.updateCamera2Eye(this.camL, true);
@@ -557,39 +588,4 @@ export class HMD {
     public notifyValuesUpdated() {
         this.onValuesUpdatedObservable.notifyObservers();
     }
-
-    /**
-     * Provide the rendered scene through the eye cameras.
-     * - this will be used to render the scene in a PIP window in the UI
-     * - app will call this to render in the UI
-     * @param isLeftEye Whether to render the left eye.
-     * @returns The rendered scene as a base64 image.
-     * @see https://doc.babylonjs.com/divingDeeper/cameras/rendering_to_a_texture
-     * @see https://doc.babylonjs.com/divingDeeper/cameras/advanced_camera_options
-     */
-    //public renderScene(isLeftEye: boolean): RenderTargetTexture {
-        //// get the camera to render
-        //const camera = isLeftEye ? this.camL : this.camR;
-
-        ////// render the scene
-        ////this.scene.renderToTarget(true, camera);
-
-        ////// get the base64 image
-        ////return this.scene.getEngine().getRenderingCanvas()?.toDataURL();
-        
-        //const renderTarget = new RenderTargetTexture(
-            //"eyeRender",
-            //{ width: 512, height: 512 },
-            //this.scene,
-            //false
-        //);
-
-        ////DEBUG test camera
-        //const cam = new FreeCamera("cam", new Vector3(0, 0, 0), this.scene);
-        //cam.position = new Vector3(0, 0, -10);
-
-        //renderTarget.activeCamera = cam;
-        //this.scene.customRenderTargets.push(renderTarget);
-        //return renderTarget;
-    //}
 }

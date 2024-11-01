@@ -422,14 +422,12 @@ export class App {
             this.pipViewPortWidth,
             this.pipViewPortHeight
         ); // (x, y, width, height)
-        this.hmd.camL.layerMask = LAYER_SCENE; // Set the layer mask to 1
         this.hmd.camR.viewport = new Viewport(
             this.pipViewPortX + this.pipViewPortWidth,
             this.pipViewPortY,
             this.pipViewPortWidth,
             this.pipViewPortHeight
         ); // (x, y, width, height)
-        this.hmd.camR.layerMask = LAYER_SCENE; // Set the layer mask to 1
         
         // Create a user camera that can be controlled by wasd and mouse
         const camera = new FreeCamera(
