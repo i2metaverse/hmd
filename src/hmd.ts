@@ -349,6 +349,7 @@ export class HMD {
         this.lensR.layerMask = LAYER_HMD;
         this.eyeL.layerMask = LAYER_HMD;
         this.eyeR.layerMask = LAYER_HMD;
+        this.virtualImg.layerMask = LAYER_HMD;
     }
 
     /**
@@ -404,14 +405,15 @@ export class HMD {
         this.eyeR.position.z -= this.distEye2Display;
 
         // create a virtual image mesh
-        //const imgWidth = 2 * (this.imgWidthNasal + this.imgWidthTemporal);
-        //this.virtualImg = MeshBuilder.CreatePlane('virtualImg',
-            //{ width: imgWidth, height: this.imgHeight }, this.scene);
-        ////this.virtualImg.enableEdgesRendering();
-        ////this.virtualImg.edgesWidth = 1;
-        //this.virtualImg.visibility = 0.3;
-        //this.virtualImg.parent = this.display;
-        //this.virtualImg.position.z = (this.distEye2Img - this.distEye2Display);
+        const imgWidth = 2 * (this.imgWidthNasal + this.imgWidthTemporal);
+        this.virtualImg = MeshBuilder.CreatePlane('virtualImg',
+            { width: imgWidth, height: this.imgHeight }, this.scene);
+        //this.virtualImg.enableEdgesRendering();
+        //this.virtualImg.edgesWidth = 1;
+        this.virtualImg.visibility = 0.1;
+        this.virtualImg.parent = this.display;
+        this.virtualImg.position.z = (this.distEye2Img - this.distEye2Display);
+        console.log(this.distEye2Img)
     }
 
     /**

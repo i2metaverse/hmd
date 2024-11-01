@@ -334,15 +334,17 @@ export class App {
 
         // set border around PIP viewports using UI rectangles
         this.pipViewPortBorderL = new GUI.Rectangle();        
-        this.pipViewPortBorderL.thickness = 2;
+        this.pipViewPortBorderL.thickness = 5;
         this.pipViewPortBorderL.color = 'pink';
         this.pipViewPortBorderL.horizontalAlignment = GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
         this.pipViewPortBorderL.verticalAlignment = GUI.Control.VERTICAL_ALIGNMENT_TOP;
         this.pipViewPortBorderR = new GUI.Rectangle();
-        this.pipViewPortBorderR.thickness = 2;
+        this.pipViewPortBorderR.thickness = 5;
         this.pipViewPortBorderR.color = 'pink';
         this.pipViewPortBorderR.horizontalAlignment = GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
         this.pipViewPortBorderR.verticalAlignment = GUI.Control.VERTICAL_ALIGNMENT_TOP;
+        this.pipViewPortBorderL.cornerRadius = 3;
+        this.pipViewPortBorderR.cornerRadius = 3;
         advancedTexture.addControl(this.pipViewPortBorderL);
         advancedTexture.addControl(this.pipViewPortBorderR);
         this.updatePIPViewPortBorder();
@@ -374,8 +376,6 @@ export class App {
         instructionsBackground.cornerRadius = 3;
         advancedTexture.addControl(instructionsBackground);
         advancedTexture.addControl(instructions);
-
-
     }
 
     /** Helper UI function to create toggle buttons
