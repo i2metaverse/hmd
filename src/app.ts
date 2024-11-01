@@ -36,6 +36,7 @@
  */
 
 const DEBUG = true;
+const MAX_ENV_ID = 5;
 
 // imports after the above so that I can easily jump to top and adjust the params
 import {
@@ -68,6 +69,12 @@ export class App {
     // the BabylonJS engine
     private engine: Engine;
 
+    // keep an id for the environment to load
+    private envID = 0;
+
+    // keep a reference to the splat mesh to dispose later
+    private splatMesh!: Mesh;
+
     // make frustumVisualizerL and frustumVisualizerR global so that they can be toggled
     private frustumVisualizerL: FrustumVisualizer | undefined;
     private frustumVisualizerR: FrustumVisualizer | undefined;
@@ -99,7 +106,7 @@ export class App {
      */
     private loadPrimitives(scene: Scene) {
         // create a hemispheric light
-        const hemiLight = new HemisphericLight('hemiLight', new Vector3(0, 1, -1), scene);
+        const hemiLight = new HemisphericLight('env_hemiLight', new Vector3(0, 1, -1), scene);
         hemiLight.intensity = 0.6;
 
         // create a directional light that will cast shadows
@@ -113,10 +120,10 @@ export class App {
         dirLight.diffuse = new Color3(0.3, 0.3, 0);
 
         // create a cone to represent the light
-        const cone = MeshBuilder.CreateCylinder('cone', {diameterTop: 0, diameterBottom: 0.5, height: 0.5}, scene);
+        const cone = MeshBuilder.CreateCylinder('env_cone', {diameterTop: 0, diameterBottom: 0.5, height: 0.5}, scene);
         cone.position = dirLight.position;
         cone.rotation = new Vector3(Math.PI, 0, 0);
-        const coneMat = new StandardMaterial('coneMat', scene);
+        const coneMat = new StandardMaterial('mat_coneMat', scene);
         coneMat.diffuseColor.set(1, 1, 0);
         coneMat.alpha = 0.8;
         cone.material = coneMat;
@@ -126,37 +133,37 @@ export class App {
         shadowGenerator.useBlurExponentialShadowMap = true;
 
         // Create materials to reuse
-        const mat1 = new StandardMaterial('red', scene);
+        const mat1 = new StandardMaterial('mat_red', scene);
         mat1.diffuseColor.set(1, .3, .5);
-        const mat2 = new StandardMaterial('green', scene);
+        const mat2 = new StandardMaterial('mat_green', scene);
         mat2.diffuseColor.set(.3, 1, .5);
-        const mat3 = new StandardMaterial('blue', scene);
+        const mat3 = new StandardMaterial('mat_blue', scene);
         mat3.diffuseColor.set(.3, .5, 1);
-        const mat4 = new StandardMaterial('yellow', scene);
+        const mat4 = new StandardMaterial('mat_yellow', scene);
         mat4.diffuseColor.set(1, 1, .5);
 
         // Create a scene with a box, torus knot, and ground plane
-        const box = MeshBuilder.CreateBox('box', {size: 2}, scene);
+        const box = MeshBuilder.CreateBox('env_box', {size: 2}, scene);
         box.position.y = 2;
         box.position.x = -2;
         box.rotation = new Vector3(Math.PI / 4, Math.PI / 4, 10);
         box.material = mat1;
         box.receiveShadows = true;
         shadowGenerator.addShadowCaster(box);
-        const tor = MeshBuilder.CreateTorusKnot('tor', 
+        const tor = MeshBuilder.CreateTorusKnot('env_tor', 
             {radius: 1, tube: 0.35, radialSegments: 100, tubularSegments: 20}, scene);
         tor.position.y = 2;
         tor.position.x = 2;
         tor.material = mat3;
         tor.receiveShadows = true;
         shadowGenerator.addShadowCaster(tor);
-        const geodesic = MeshBuilder.CreateGeodesic('aaa', {m: 1, n:1, size:2}, scene);
+        const geodesic = MeshBuilder.CreateGeodesic('env_geo', {m: 1, n:1, size:2}, scene);
         geodesic.position.y = 1.5;
         geodesic.position.z = 3;
         geodesic.material = mat4;
         geodesic.receiveShadows = true;
         shadowGenerator.addShadowCaster(geodesic);
-        const ground = CreateGround('ground', {width: 10, height: 10}, scene);
+        const ground = CreateGround('env_ground', {width: 10, height: 10}, scene);
         ground.material = mat2;
         ground.receiveShadows = true;
         ground.position.y = -1;
@@ -171,8 +178,10 @@ export class App {
     /**
      * Add UI controls to the scene.
      * - add a slider to change the eyeRelief in the HMD.
+     * @param hmd The HMD object to control.
+     * @param scene The scene to manipulate when callbacks are triggered.
      */
-    private addUI(hmd: HMD) {
+    private addUI(hmd: HMD, scene: Scene) {
         // create a GUI
         const advancedTexture = GUI.AdvancedDynamicTexture.CreateFullscreenUI('UI');
 
@@ -314,7 +323,6 @@ export class App {
                     }
                 });
             }
-
         }
 
         // Create a horizontal StackPanel to hold both buttons side by side
@@ -382,6 +390,100 @@ export class App {
         instructionsBackground.cornerRadius = 3;
         advancedTexture.addControl(instructionsBackground);
         advancedTexture.addControl(instructions);
+
+
+        // add leftbutton and rightbutton to a panel 20px from the previous buttonPanell
+        const envButtonPanel = new GUI.StackPanel();
+        envButtonPanel.isVertical = false;
+        envButtonPanel.horizontalAlignment = GUI.Control.HORIZONTAL_ALIGNMENT_CENTER;
+        envButtonPanel.verticalAlignment = GUI.Control.VERTICAL_ALIGNMENT_BOTTOM;
+        envButtonPanel.width = '100px';
+        envButtonPanel.height = '100px';
+        envButtonPanel.paddingRight = '5px';
+        envButtonPanel.paddingBottom = '40px';
+        advancedTexture.addControl(envButtonPanel);
+
+        // create a left and right button to change the loaded environment
+        const leftButton = this.createToggleButton('<', '#800080', () => {
+            this.disposeEnvObjects(scene);
+            this.envID = (this.envID - 1 + MAX_ENV_ID) % MAX_ENV_ID;
+            this.loadEnvironment(this.envID, scene);
+        });
+        const rightButton = this.createToggleButton('>', '#800080', () => {
+            this.disposeEnvObjects(scene);
+            this.envID = (this.envID + 1) % MAX_ENV_ID;
+            this.loadEnvironment(this.envID, scene);
+        });
+        leftButton.cornerRadius = 10;
+        rightButton.cornerRadius = 10;
+        leftButton.width = '50px';
+        rightButton.width = '50px';
+        envButtonPanel.addControl(leftButton);
+        envButtonPanel.addControl(rightButton);
+    }
+
+    /**
+     * Helper to load the correct environment based on the envID.
+     * @param envID The environment ID to load.
+     * @param scene The scene to load the environment into.
+     */
+    private loadEnvironment(envID: number, scene: Scene) {
+        // envID 0 is the primitives environment
+        // envID 1 to MAX_ENV_ID are the Gaussian Splat environments
+        if (envID === 0) {
+            this.loadPrimitives(scene);
+        }
+        else {
+            this.loadGaussianSplat(envID, scene);
+        }
+    }
+
+    /**
+     * Helper to dispose of the necessary environmental objects in the scene.
+     * - need to do a while loop to ensure all objects are disposed
+     * - this is due to the fact that the scene.meshes array is modified when objects are disposed
+     *   (or so this is what copilot says)
+     * @param scene The scene to dispose of the objects in.
+     */
+    private disposeEnvObjects(scene: Scene) {
+        // Repeat until all relevant objects are disposed
+        let disposedAll = false;
+        while (!disposedAll) {
+            disposedAll = true;
+
+            // Dispose of each mesh that starts with "env" or "splat"
+            scene.meshes.slice().forEach((mesh) => {
+                if (mesh.name.startsWith("env")) {
+                    console.log(`Disposing of mesh: ${mesh.name}`);
+                    mesh.dispose();
+                    disposedAll = false; // Set flag to false if at least one item was disposed
+                }
+            });
+
+            // Dispose of lights and their shadow generators
+            scene.lights.slice().forEach((light) => {
+                console.log(`Disposing of light: ${light.name}`);
+                if (light instanceof DirectionalLight) {
+                    light.getShadowGenerator()?.dispose();
+                }
+                light.dispose();
+                disposedAll = false;
+            });
+
+            // Dispose of materials
+            scene.materials.slice().forEach((mat) => {
+                console.log(`Disposing of material: ${mat.name}`);
+                mat.dispose();
+                disposedAll = false;
+            });
+
+            // Dispose of splat mesh if it exists
+            if (this.splatMesh && !this.splatMesh.isDisposed()) {
+                console.log(`Disposing of mesh: ${this.splatMesh.name}`);
+                this.splatMesh.dispose();
+                disposedAll = false;
+            }
+        } 
     }
 
     /** Helper UI function to create toggle buttons
@@ -420,8 +522,7 @@ export class App {
         const scene = new Scene(this.engine);
         scene.clearColor.set(0.15, 0.15, 0.15, 1);
 
-        //this.loadPrimitives(scene);
-        this.loadGaussianSplat(scene);
+        this.loadPrimitives(scene);
 
         // Create the HMD
         this.hmd = new HMD(scene);
@@ -474,7 +575,7 @@ export class App {
         scene.activeCameras = [camera, this.hmd.camL, this.hmd.camR, guiCamera]; // Render both cameras
 
         // Add UI controls to the scene
-        this.addUI(this.hmd);
+        this.addUI(this.hmd, scene);
 
         // get view and transform matrices from HMD
         let transformMat = this.hmd.transformMatrix;
@@ -526,27 +627,52 @@ export class App {
 
     /**
      * Add a gaussian splat to the scene.
+     * @param envID The environment ID to determine which splat to load.
      * @param scene The scene to add the Gaussian Splat to.
      */
-    private loadGaussianSplat(scene: Scene) {
+    private loadGaussianSplat(envID: number, scene: Scene) {
+        // envID 0 is the primitives environment
+        // envID 1 to MAX_ENV_ID are the Gaussian Splat environments
+        const splatID = envID - 1;
+
+        const splats = [
+            "gs_Sqwakers_trimed.splat",
+            "gs_Skull.splat",
+            "gs_Plants.splat",
+            "gs_Fire_Pit.splat"
+        ];
+
         // create a hemispheric light
         const hemiLight = new HemisphericLight('hemiLight', new Vector3(0, 1, 0), scene);
         hemiLight.intensity = 0.6;
 
         // Load the Gaussian Splat mesh locally
-        SceneLoader.ImportMesh(
-            "",
+        SceneLoader.ImportMeshAsync(
+            "splat",
             "assets/",
-            //"Halo_Believe.splat",
-            "gs_Fire_Pit.splat",
-            scene,
-            (meshes) => {
+            splats[splatID],
+            scene).then((result) => {
+                // save the mesh to be able to dispose later
+                this.splatMesh = result.meshes[0] as Mesh;
+
                 // Set the position of the Gaussian Splat
-                const mesh = meshes[0];
-                mesh.position = new Vector3(0, 1.5, 0);
-                mesh.layerMask = LAYER_SCENE;
-            }
-        );
+                if (splatID === 3) {
+                    this.splatMesh.position = new Vector3(0, 1, 0);
+                }
+                else {
+                    this.splatMesh.position = new Vector3(1, 1, -3);
+                }
+
+                // Set the layer mask for the Gaussian Splat
+                this.splatMesh.layerMask = LAYER_SCENE;
+            });
+            //(meshes) => {
+                //// Set the position of the Gaussian Splat
+                //const mesh = meshes[0];
+                //mesh.position = new Vector3(0, 1, 0);
+                //mesh.layerMask = LAYER_SCENE;
+            //}
+        //);
 
         //SceneLoader.ImportMeshAsync(
             //"splat", 

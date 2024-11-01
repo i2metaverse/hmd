@@ -5,7 +5,7 @@
     "main": "index.js",
     "scripts": {
         "dev": "vite",
-        "build": "tsc && vite build && ./decorate-html.sh",
+        "build": "tsc && vite build && ./decorate-html.sh && ./copy-assets.sh",
         "decorate": "./decorate-html.sh",
         "jekyll": "./setup-jekyll.sh",
         "preview": "vite preview",
