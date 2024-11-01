@@ -507,6 +507,7 @@ export class HMD {
         // | (r+l)/(r-l)  (t+b)/(t-b)  (f+n)/(f-n)  1   |
         // | 0            0            -2fn/(f-n)   0   |
         // https://www.scratchapixel.com/lessons/3d-basic-rendering/perspective-and-orthographic-projection-matrix/opengl-perspective-projection-matrix.html
+        // https://www.songho.ca/opengl/gl_transform.html#example2
         // The code is adapted from THREE.js's Matrix4.makePerspective function but with the
         // signs changed to match Babylon.js's LHS axes.
 

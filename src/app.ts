@@ -99,7 +99,7 @@ export class App {
         // create a directional light that will cast shadows
         // TODO: create keys to move light
         const dirLight = new DirectionalLight('dirLight', new Vector3(0, -1, -1), scene);
-        dirLight.position = new Vector3(0, 8, 0);
+        dirLight.position = new Vector3(0, 10, 0);
         dirLight.intensity = 0.3;
         dirLight.shadowEnabled = true;
         dirLight.shadowMinZ = 1;
