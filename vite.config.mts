@@ -31,5 +31,5 @@ export default defineConfig({
     build: {
         outDir: 'docs'
     },
-    base: '/dia-playground/',
+    base: '/diaverse/',
 });
