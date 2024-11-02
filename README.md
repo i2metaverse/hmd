@@ -20,7 +20,7 @@ Reduce the eyeRelief to see how the frustum changes.
 
 The application simply uses a 2-layer architecture: App and UI.
 
-Draw UML disgram here:
+Draw UML diagram here:
 ```
  +-----------------+         +-----------------+
  |       App       | ---o)---|        UI       |
