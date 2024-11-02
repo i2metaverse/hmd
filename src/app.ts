@@ -35,7 +35,7 @@
  * There will be an overlay on the screen to show the left and right eye images.
  */
 
-const MAX_ENV_ID = 5;
+const MAX_ENV_ID = 6;
 
 // imports after the above so that I can easily jump to top and adjust the params
 import {
@@ -358,7 +358,7 @@ export class App {
             "gs_Skull.splat",
             "gs_Plants.splat",
             "gs_Fire_Pit.splat",
-            "Halo_Believe.splat",
+            "Halo_Believe.splat"
         ];
 
         // create a hemispheric light
