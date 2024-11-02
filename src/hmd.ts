@@ -3,6 +3,9 @@
  *       including setup for simulated eye cameras and their projections.
  * @author Chek
  * @lastUpdated 28 Oct 2024
+ *
+ * The HMD class represents a VR headset's parameters and functionalities,
+ * including setup for simulated eye cameras and their projections.
  */
 
 import {
@@ -417,6 +420,7 @@ export class HMD {
         // - else it will be +ve, i.e., a virtual image will be formed in the lens
         // - when f = distLens2Display, the magFactor will be infinite
         // - TODO: think about making magnification abs for viewing non-inverted images
+        // - TODO: show inversion notice in UI
         this.magnification = (this.f / (this.f - this.distLens2Display));
 
         // calculate the full height of the virtual image for the particular eye

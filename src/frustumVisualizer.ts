@@ -2,6 +2,8 @@
  * @file FrustumVisualizer class for visualizing the frustum of a camera.
  * @author Chek
  * @lastUpdated 28 Oct 2024
+ *
+ * This class is used to visualize the frustum of a camera in the scene.
  */
 import {
     Matrix,

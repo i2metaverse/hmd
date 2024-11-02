@@ -5,20 +5,6 @@
  *
  * Here, we initialize the Babylon engine, create the scene (via App), create the UI and run the render loop.
  *
- * Software architecture:
- * ----------------------
- * The application simply uses a 2-layer architecture: App and UI.
- *
- * +-----------------+         +-----------------+
- * |       App       | ---o)---|        UI       |
- * +--------+--------+         +--------+--------+
- *
- * The App class is responsible for creating the scene and updating the scene based on the HMD.
- * - App owns the HMD and the FrustumVisualizer.
- * - App provides APIs for the UI to interact with the scene.
- *
- * The UI class is responsible for handling user interactions and use the App to update the scene.
- * - UI knows about the App but App does not know about the UI.
  */
 import { Engine } from '@babylonjs/core';
 import { App } from './app';
