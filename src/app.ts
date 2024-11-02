@@ -354,11 +354,11 @@ export class App {
         const splatID = envID - 1;
 
         const splats = [
-            "Halo_Believe.splat",
             "gs_Sqwakers_trimed.splat",
             "gs_Skull.splat",
             "gs_Plants.splat",
-            "gs_Fire_Pit.splat"
+            "gs_Fire_Pit.splat",
+            "Halo_Believe.splat",
         ];
 
         // create a hemispheric light
