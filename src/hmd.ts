@@ -95,6 +95,7 @@ export class HMD {
     private eyeR!: Mesh;
 
     // mesh for the virtual image
+    // TODO: think about how to show the virtual image
     private virtualImg!: Mesh;
 
     /**
@@ -411,11 +412,12 @@ export class HMD {
         this.distEye2Display = this.eyeRelief + this.distLens2Display;
 
         // calculate magnification factor
-        // - note that if f < distLens2Display, then it will be -ve
-        // - else it will be +ve
+        // - note that if f < distLens2Display, then it will be -ve, i.e., 
+        //   a real inverted image will be formed that should be projected on a screen
+        // - else it will be +ve, i.e., a virtual image will be formed in the lens
         // - when f = distLens2Display, the magFactor will be infinite
-        // - make magnification abs for calculations
-        this.magnification = Math.abs(this.f / (this.f - this.distLens2Display));
+        // - TODO: think about making magnification abs for viewing non-inverted images
+        this.magnification = (this.f / (this.f - this.distLens2Display));
 
         // calculate the full height of the virtual image for the particular eye
         this.imgHeight = this.displayHeight * this.magnification;
@@ -428,7 +430,7 @@ export class HMD {
         // - this results in a -ve value for distLens2Img 
         //   which means the virtual image is on the same side as the object
         // - this is similar to a magnifying glass (as opposed to a projector)
-        // - make distLens2Img abs for calculations
+        // - make distLens2Img abs for calculations, as -ve value here is conceptual
         this.distLens2Img = Math.abs(1 / (1 / this.f - 1 / this.distLens2Display));
 
         // calculate the distance from the eye to the virtual image
