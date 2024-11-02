@@ -112,10 +112,10 @@ export class FrustumVisualizer {
             );
 
             // transform corner coords from world space to local space
-            const localCorner = Vector3.TransformCoordinates(
-                worldCorner,
-                invTransformMat
-            );
+            //const localCorner = Vector3.TransformCoordinates(
+                //worldCorner,
+                //invTransformMat
+            //);
 
             // we are not interested in local space, so return world space
             return worldCorner;

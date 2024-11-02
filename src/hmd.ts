@@ -4,7 +4,6 @@
  * @author Chek
  * @lastUpdated 28 Oct 2024
  */
-const DEBUG = false;
 
 import {
     FreeCamera,
