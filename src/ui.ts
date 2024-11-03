@@ -2,7 +2,7 @@
  * @author Chek
  * @lastUpdated 2 Nov 2024
  */
-import { EventState, Scene } from '@babylonjs/core';
+import { EventState, Scene, VirtualJoystick } from '@babylonjs/core';
 import { HMD } from './hmd';
 import { LAYER_UI } from './constants';
 import * as GUI from "@babylonjs/gui";
@@ -296,4 +296,19 @@ export class UI {
         this.pipViewPortBorderR.height = `${app.pipViewPortHeight * 100}%`;
         this.pipViewPortBorderR.left = `${app.pipViewPortX * 100 + app.pipViewPortWidth * 100}%`;
     }
+
+    /**
+     * Create a virtual joystick to control the camera.
+     * - on moving, the main camera will be translated
+     * @returns The virtual joystick.
+     */
+    createVirtualJoystick() {
+        // create a virtual joystick to control the camera
+        const joystick = new VirtualJoystick();
+        joystick.setJoystickSensibility(0.5);
+        joystick.setJoystickColor('red');
+        return joystick;
+    }
+
+
 }

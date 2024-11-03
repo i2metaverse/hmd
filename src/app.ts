@@ -375,7 +375,11 @@ export class App {
                 this.splatMesh = result.meshes[0] as Mesh;
 
                 // Set the position of the Gaussian Splat
-                if (splatID === 3) {
+                if (splatID === 1) {
+                    this.splatMesh.rotation = new Vector3(0, 3.3*Math.PI, 0);
+                    this.splatMesh.position = new Vector3(0, 1, -2);
+                }
+                else if (splatID === 3) {
                     this.splatMesh.position = new Vector3(0, 1, 0);
                 }
                 else {
@@ -447,4 +451,11 @@ export class App {
         }
         this.loadEnvironment(this.envID, scene);
     }
+
+    /**
+     * Move the camera by a given amount.
+     * - this is called by UI joystick
+     * @param dx The amount to move the camera in the x direction.
+     * @param dz The amount to move the camera in the z direction.
+     */
 }
