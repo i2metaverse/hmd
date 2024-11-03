@@ -93,9 +93,56 @@ export class App {
         // register the SPLATFileLoader plugin
         SceneLoader.RegisterPlugin(new SPLATFileLoader());
     }
-    
+
     /**
-     * Construct a environment based on primitives
+     * Construct an environment based on a pre-made model. 
+     * @param scene The scene to load the environment into.
+     * @param modelPath The path to the model to load.
+     */
+    private loadModel(scene: Scene, modelPath: string) {
+        // create a hemispheric light
+        const hemiLight = new HemisphericLight('env_hemiLight', new Vector3(0, 1, -1), scene);
+        hemiLight.intensity = 0.6;
+
+        // create a directional light that will cast shadows
+        const dirLight = new DirectionalLight('dirLight', new Vector3(0, -1, -1), scene);
+        dirLight.position = new Vector3(0, 10, 0);
+        dirLight.intensity = 0.3;
+        dirLight.shadowEnabled = true;
+        dirLight.shadowMinZ = 1;
+        dirLight.shadowMaxZ = 100;
+        dirLight.diffuse = new Color3(0.3, 0.3, 0);
+
+        // create a cone to represent the light
+        const cone = MeshBuilder.CreateCylinder('env_cone', {diameterTop: 0, diameterBottom: 0.5, height: 0.5}, scene);
+        cone.position = dirLight.position;
+        cone.rotation = new Vector3(Math.PI, 0, 0);
+        const coneMat = new StandardMaterial('mat_coneMat', scene);
+        coneMat.diffuseColor.set(1, 1, 0);
+        coneMat.alpha = 0.8;
+        cone.material = coneMat;
+
+        // Create shadow generator for the directional light
+        const shadowGenerator = new ShadowGenerator(1024, dirLight);
+        shadowGenerator.useBlurExponentialShadowMap = true;
+
+        // Load the model
+        SceneLoader.ImportMeshAsync(
+            "env",
+            modelPath,
+            "",
+            scene
+        ).then((result) => {
+            // Set the layer mask for the model
+            result.meshes.forEach((mesh) => {
+                mesh.layerMask = LAYER_SCENE;
+                shadowGenerator.addShadowCaster(mesh);
+            });
+        });
+    }
+
+    /**
+     * Construct an environment based on primitives
      */
     private loadPrimitives(scene: Scene) {
         // create a hemispheric light
@@ -182,6 +229,7 @@ export class App {
         else {
             this.loadGaussianSplat(envID, scene);
         }
+
     }
 
     /**

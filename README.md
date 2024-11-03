@@ -62,4 +62,4 @@ The math and implementation were studied from the following sources:
 - perspective projection code: https://threejs.org/docs/#api/en/math/Matrix4.makePerspective
 
 Gaussian splats were kindly provided at 
-- https://assets.babylonjs.com/splats/
+- https://github.com/BabylonJS/Assets/tree/master/splats
