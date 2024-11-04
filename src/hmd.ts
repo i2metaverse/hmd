@@ -404,7 +404,38 @@ export class HMD {
 
     /**
      * Calculate the projection matrix for the HMD for an eye.
-     * Update the commented code above to work for either eye.
+     *
+     * This is how you would think about what we're doing here:
+     *
+     * Our eventual goal is to render the scene correctly for a given eye. In this
+     * method, we want to determine the projection matrix for the eye camera. In a separate 
+     * method, we will set the camera's view matrix to be the eye's view matrix.
+     *
+     * The eye (cam) is actually looking at a virtual image, which is formed by the light rays generated 
+     * from the display through the lens. In terms of lens optics, the display is the "real" object and the
+     * virtual image is the "virtual" object that the eye perceives through the lens. The virtual image now 
+     * becomes our target screen to render 3D objects in the scene onto.
+     *
+     * Hence, at the point originating from the eye, we need to set up a frustum that encompasses
+     * the virtual image such that the correct perspective is rendered on the near plane that we 
+     * choose. The near plane should be set to be at least the distance from the eye to the display.
+     * The far plane can be set to be far enough to encompass objects in the scene.
+     * This configuration simulates a first-person view, where virtual objects appear to be laid out
+     * in front of the user at realistic distances based on the HMD’s parameters.
+     * The positions of 3D objects in the scene should hence use distance units that are synonymous with
+     * the real-world distance units used for the HMD params. This is because the frustum is set up
+     * to render objects at those distances correctly on the virtual image.
+     *
+     * Given the HMD params, like the focal length, IPD, eye relief, and distance from 
+     * lens to display, the virtual image width, height and distance of the image from 
+     * the lens can be derived. 
+     *
+     * The confusing part here is that the virtual image feels like it is an object in the scene
+     * that we are rendering to the near plane. It is not. Only the 3D objects defined in the 
+     * scene are rendered to the near plane. The virtual image is just a concept that we use to
+     * define the frustum parameters that will be used to render those 3D objects such that they
+     * appear correctly on the virtual image.
+     *
      * @param isLeftEye Whether the eye is the left eye.
      * @returns The projection matrix for the HMD.
      */
