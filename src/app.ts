@@ -79,6 +79,9 @@ export class App {
     // keep a reference to the splat mesh to dispose later
     private splatMesh!: Mesh;
 
+    // shadow generator for the scene
+    private shadowGenerator!: ShadowGenerator;
+
     // make frustumVisualizerL and frustumVisualizerR global so that they can be toggled
     frustumVisualizerL: FrustumVisualizer | undefined;
     frustumVisualizerR: FrustumVisualizer | undefined;
@@ -102,36 +105,45 @@ export class App {
     }
 
     /**
-     * Construct an environment based on a pre-made model. 
-     * @param scene The scene to load the environment into.
-     * @param modelPath The path to the model to load.
+     * Load lights and set shadow generators for the scene.
      */
-    private loadModel(scene: Scene, modelPath: string) {
+    private loadLights(scene: Scene) {
         // create a hemispheric light
         const hemiLight = new HemisphericLight('env_hemiLight', new Vector3(0, 1, -1), scene);
         hemiLight.intensity = 0.6;
 
         // create a directional light that will cast shadows
         const dirLight = new DirectionalLight('dirLight', new Vector3(0, -1, -1), scene);
-        dirLight.position = new Vector3(0, .1, 0);
+        dirLight.position = new Vector3(0, 1, 0);
         dirLight.intensity = 0.3;
         dirLight.shadowEnabled = true;
-        dirLight.shadowMinZ = 0.1;
-        dirLight.shadowMaxZ = 10;
+        dirLight.shadowMinZ = 0.01;
+        dirLight.shadowMaxZ = 100;
         dirLight.diffuse = new Color3(0.3, 0.3, 0);
 
         // create a cone to represent the light
-        const cone = MeshBuilder.CreateCylinder('env_cone', {diameterTop: 0, diameterBottom: 0.5, height: 0.5}, scene);
+        const cone = MeshBuilder.CreateCylinder('env_cone', 
+            {diameterTop: 0, diameterBottom: 0.05, height: 0.05}, scene);
         cone.position = dirLight.position;
         cone.rotation = new Vector3(Math.PI, 0, 0);
         const coneMat = new StandardMaterial('mat_coneMat', scene);
-        coneMat.diffuseColor.set(1, 1, 0);
-        coneMat.alpha = 0.8;
+        //coneMat.diffuseColor.set(1, 1, 0);
+        coneMat.emissiveColor.set(1, 1, 0);
+        coneMat.alpha = 0.5;
         cone.material = coneMat;
 
         // Create shadow generator for the directional light
-        const shadowGenerator = new ShadowGenerator(1024, dirLight);
-        shadowGenerator.useBlurExponentialShadowMap = true;
+        this.shadowGenerator = new ShadowGenerator(1024, dirLight);
+        this.shadowGenerator.useBlurExponentialShadowMap = true;
+    }
+
+    /**
+     * Construct an environment based on a pre-made model. 
+     * @param scene The scene to load the environment into.
+     * @param modelPath The path to the model to load.
+     */
+    private loadModel(scene: Scene, modelPath: string) {
+        this.loadLights(scene);
 
         // Load the model
         SceneLoader.ImportMeshAsync(
@@ -143,7 +155,7 @@ export class App {
             // Set the layer mask for the model
             result.meshes.forEach((mesh) => {
                 mesh.layerMask = LAYER_SCENE;
-                shadowGenerator.addShadowCaster(mesh);
+                this.shadowGenerator.addShadowCaster(mesh);
             });
         });
     }
@@ -152,32 +164,7 @@ export class App {
      * Construct an environment based on primitives
      */
     private loadPrimitives(scene: Scene) {
-        // create a hemispheric light
-        const hemiLight = new HemisphericLight('env_hemiLight', new Vector3(0, 1, -1), scene);
-        hemiLight.intensity = 0.6;
-
-        // create a directional light that will cast shadows
-        // TODO: create keys to move light
-        const dirLight = new DirectionalLight('dirLight', new Vector3(0, -1, -1), scene);
-        dirLight.position = new Vector3(0, 1, 0);
-        dirLight.intensity = 0.3;
-        dirLight.shadowEnabled = true;
-        dirLight.shadowMinZ = 1;
-        dirLight.shadowMaxZ = 100;
-        dirLight.diffuse = new Color3(0.3, 0.3, 0);
-
-        // create a cone to represent the light
-        const cone = MeshBuilder.CreateCylinder('env_cone', {diameterTop: 0, diameterBottom: 0.05, height: 0.05}, scene);
-        cone.position = dirLight.position;
-        cone.rotation = new Vector3(Math.PI, 0, 0);
-        const coneMat = new StandardMaterial('mat_coneMat', scene);
-        coneMat.diffuseColor.set(1, 1, 0);
-        coneMat.alpha = 0.8;
-        cone.material = coneMat;
-
-        // Create shadow generator for the directional light
-        const shadowGenerator = new ShadowGenerator(1024, dirLight);
-        shadowGenerator.useBlurExponentialShadowMap = true;
+        this.loadLights(scene);
 
         // Create materials to reuse
         const mat1 = new StandardMaterial('mat_red', scene);
@@ -196,20 +183,20 @@ export class App {
         box.rotation = new Vector3(Math.PI / 4, Math.PI / 4, 10);
         box.material = mat1;
         box.receiveShadows = true;
-        shadowGenerator.addShadowCaster(box);
+        this.shadowGenerator.addShadowCaster(box);
         const tor = MeshBuilder.CreateTorusKnot('env_tor', 
-            {radius: .1, tube: 0.035, radialSegments: 100, tubularSegments: 20}, scene);
+            {radius: .1, tube: 0.038, radialSegments: 100, tubularSegments: 80}, scene);
         tor.position.y = .2;
         tor.position.x = .2;
         tor.material = mat3;
         tor.receiveShadows = true;
-        shadowGenerator.addShadowCaster(tor);
+        this.shadowGenerator.addShadowCaster(tor);
         const geodesic = MeshBuilder.CreateGeodesic('env_geo', {m: 1, n:1, size:.2}, scene);
         geodesic.position.y = 0.15;
         geodesic.position.z = .3;
         geodesic.material = mat4;
         geodesic.receiveShadows = true;
-        shadowGenerator.addShadowCaster(geodesic);
+        this.shadowGenerator.addShadowCaster(geodesic);
         const ground = CreateGround('env_ground', {width: 1, height: 1}, scene);
         ground.material = mat2;
         ground.receiveShadows = true;
@@ -437,7 +424,8 @@ export class App {
                     this.splatMesh.rotation = new Vector3(0, 3.3*Math.PI, 0);
                 }
                 else if (splatID === 3) {
-                    this.splatMesh.position = new Vector3(0, 0.3, 0.5);
+                    this.splatMesh.position = new Vector3(0, 0.3, 0);
+                    this.splatMesh.scaling.setAll(0.2);
                 }
 
                 // Set the layer mask for the Gaussian Splat

@@ -7,6 +7,7 @@ import { HMD } from './hmd';
 import { LAYER_UI } from './constants';
 import * as GUI from "@babylonjs/gui";
 import { App } from './app';
+import { VIEWPORT_BORDER_THICKNESS } from './constants';
 
 /**
  * The UI class to add UI controls to the scene.
@@ -58,6 +59,8 @@ export class UI {
                 slider.background = 'white';
                 slider.onValueChangedObservable.add((value) => {
                     hmd.setParam(key, value)
+                    app.updateHMDEyeCameraViewports();
+                    this.updatePIPViewPortBorder(app);
                 });
 
                 const textBlock = new GUI.TextBlock();
@@ -188,12 +191,12 @@ export class UI {
 
         // set border around PIP viewports using UI rectangles
         this.pipViewPortBorderL = new GUI.Rectangle();        
-        this.pipViewPortBorderL.thickness = 5;
+        this.pipViewPortBorderL.thickness = VIEWPORT_BORDER_THICKNESS;
         this.pipViewPortBorderL.color = 'pink';
         this.pipViewPortBorderL.horizontalAlignment = GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
         this.pipViewPortBorderL.verticalAlignment = GUI.Control.VERTICAL_ALIGNMENT_TOP;
         this.pipViewPortBorderR = new GUI.Rectangle();
-        this.pipViewPortBorderR.thickness = 5;
+        this.pipViewPortBorderR.thickness = VIEWPORT_BORDER_THICKNESS;
         this.pipViewPortBorderR.color = 'pink';
         this.pipViewPortBorderR.horizontalAlignment = GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
         this.pipViewPortBorderR.verticalAlignment = GUI.Control.VERTICAL_ALIGNMENT_TOP;

@@ -19,8 +19,8 @@ export const LAYER_FRUSTUM = 0x4;
 export const LAYER_UI = 0x8;
 
 export const MAX_ENV_ID = 6;
-export const MAIN_CAM_POS = new Vector3(1, 1, -1);
+export const MAIN_CAM_POS = new Vector3(0.7, 0.7, -1);
 export const CAM_SPEED = 0.03;
 
 export const MESH_EDGE_WIDTH = 0.1;
-
+export const VIEWPORT_BORDER_THICKNESS = 3;
