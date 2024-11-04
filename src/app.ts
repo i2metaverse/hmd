@@ -35,7 +35,6 @@
  * There will be an overlay on the screen to show the left and right eye images.
  */
 
-const MAX_ENV_ID = 6;
 
 // imports after the above so that I can easily jump to top and adjust the params
 import {
@@ -57,7 +56,15 @@ import {
 import { SPLATFileLoader } from "@babylonjs/loaders";
 import { FrustumVisualizer } from "./frustumVisualizer";
 import { HMD } from "./hmd";
-import { LAYER_SCENE, LAYER_UI, LAYER_HMD, LAYER_FRUSTUM } from "./constants";
+import {
+    LAYER_SCENE,
+    LAYER_UI,
+    LAYER_HMD,
+    LAYER_FRUSTUM,
+    MAX_ENV_ID,
+    MAIN_CAM_POS,
+    CAM_SPEED,
+} from "./constants";
 
 /**
  * The main class for the web application.
@@ -106,11 +113,11 @@ export class App {
 
         // create a directional light that will cast shadows
         const dirLight = new DirectionalLight('dirLight', new Vector3(0, -1, -1), scene);
-        dirLight.position = new Vector3(0, 10, 0);
+        dirLight.position = new Vector3(0, .1, 0);
         dirLight.intensity = 0.3;
         dirLight.shadowEnabled = true;
-        dirLight.shadowMinZ = 1;
-        dirLight.shadowMaxZ = 100;
+        dirLight.shadowMinZ = 0.1;
+        dirLight.shadowMaxZ = 10;
         dirLight.diffuse = new Color3(0.3, 0.3, 0);
 
         // create a cone to represent the light
@@ -152,7 +159,7 @@ export class App {
         // create a directional light that will cast shadows
         // TODO: create keys to move light
         const dirLight = new DirectionalLight('dirLight', new Vector3(0, -1, -1), scene);
-        dirLight.position = new Vector3(0, 10, 0);
+        dirLight.position = new Vector3(0, 1, 0);
         dirLight.intensity = 0.3;
         dirLight.shadowEnabled = true;
         dirLight.shadowMinZ = 1;
@@ -160,7 +167,7 @@ export class App {
         dirLight.diffuse = new Color3(0.3, 0.3, 0);
 
         // create a cone to represent the light
-        const cone = MeshBuilder.CreateCylinder('env_cone', {diameterTop: 0, diameterBottom: 0.5, height: 0.5}, scene);
+        const cone = MeshBuilder.CreateCylinder('env_cone', {diameterTop: 0, diameterBottom: 0.05, height: 0.05}, scene);
         cone.position = dirLight.position;
         cone.rotation = new Vector3(Math.PI, 0, 0);
         const coneMat = new StandardMaterial('mat_coneMat', scene);
@@ -183,30 +190,30 @@ export class App {
         mat4.diffuseColor.set(1, 1, .5);
 
         // Create a scene with a box, torus knot, and ground plane
-        const box = MeshBuilder.CreateBox('env_box', {size: 2}, scene);
-        box.position.y = 2;
-        box.position.x = -2;
+        const box = MeshBuilder.CreateBox('env_box', {size: .2}, scene);
+        box.position.y = .2;
+        box.position.x = -.2;
         box.rotation = new Vector3(Math.PI / 4, Math.PI / 4, 10);
         box.material = mat1;
         box.receiveShadows = true;
         shadowGenerator.addShadowCaster(box);
         const tor = MeshBuilder.CreateTorusKnot('env_tor', 
-            {radius: 1, tube: 0.35, radialSegments: 100, tubularSegments: 20}, scene);
-        tor.position.y = 2;
-        tor.position.x = 2;
+            {radius: .1, tube: 0.035, radialSegments: 100, tubularSegments: 20}, scene);
+        tor.position.y = .2;
+        tor.position.x = .2;
         tor.material = mat3;
         tor.receiveShadows = true;
         shadowGenerator.addShadowCaster(tor);
-        const geodesic = MeshBuilder.CreateGeodesic('env_geo', {m: 1, n:1, size:2}, scene);
-        geodesic.position.y = 1.5;
-        geodesic.position.z = 3;
+        const geodesic = MeshBuilder.CreateGeodesic('env_geo', {m: 1, n:1, size:.2}, scene);
+        geodesic.position.y = 0.15;
+        geodesic.position.z = .3;
         geodesic.material = mat4;
         geodesic.receiveShadows = true;
         shadowGenerator.addShadowCaster(geodesic);
-        const ground = CreateGround('env_ground', {width: 10, height: 10}, scene);
+        const ground = CreateGround('env_ground', {width: 1, height: 1}, scene);
         ground.material = mat2;
         ground.receiveShadows = true;
-        ground.position.y = -1;
+        ground.position.y = -.1;
 
         // set the layer mask for the objects
         box.layerMask = LAYER_SCENE;
@@ -318,7 +325,7 @@ export class App {
         // Create a user camera that can be controlled by wasd and mouse
         const camera = new FreeCamera(
             "camera",
-            new Vector3(5, 5, -10),
+            MAIN_CAM_POS,
             scene
         );
         camera.viewport = new Viewport(0, 0, 1, 1);
@@ -328,7 +335,9 @@ export class App {
         camera.keysDown = [83]; // S
         camera.keysLeft = [65]; // A
         camera.keysRight = [68]; // D
-        camera.speed = 0.3; // slow down the camera movement
+        camera.speed = CAM_SPEED; // slow down the camera movement
+        camera.minZ = 0.01; // prevent camera from going to 0
+        camera.maxZ = 100;
 
         // set camera layerMask to be able to render all
         camera.layerMask = LAYER_SCENE | LAYER_HMD | LAYER_FRUSTUM;
@@ -366,7 +375,7 @@ export class App {
 
         // Create the scene animation by adding an observer just before rendering
         let elapsedSecs = 0.0;
-        let animSpeed = 2.0;
+        let animSpeed = .5;
         const newPos = this.hmd.pos.clone();
         scene.onBeforeRenderObservable.add(() => {
             // move the HMD in a sine wave oscillation to show changes in the frustum
@@ -421,17 +430,14 @@ export class App {
             scene).then((result) => {
                 // save the mesh to be able to dispose later
                 this.splatMesh = result.meshes[0] as Mesh;
+                this.splatMesh.scaling = new Vector3(0.3, 0.3, 0.3);
 
                 // Set the position of the Gaussian Splat
                 if (splatID === 1) {
                     this.splatMesh.rotation = new Vector3(0, 3.3*Math.PI, 0);
-                    this.splatMesh.position = new Vector3(0, 1, -2);
                 }
                 else if (splatID === 3) {
-                    this.splatMesh.position = new Vector3(0, 1, 0);
-                }
-                else {
-                    this.splatMesh.position = new Vector3(1, 1, -3);
+                    this.splatMesh.position = new Vector3(0, 0.3, 0.5);
                 }
 
                 // Set the layer mask for the Gaussian Splat

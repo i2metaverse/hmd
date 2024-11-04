@@ -19,7 +19,7 @@ import {
     Observable,
 } from "@babylonjs/core";
 
-import { LAYER_HMD, LAYER_SCENE } from "./constants";
+import { LAYER_HMD, LAYER_SCENE, MESH_EDGE_WIDTH } from "./constants";
 
 export class HMD {
     private scene: Scene;
@@ -41,18 +41,18 @@ export class HMD {
      * TODO: think about whether eyeRelief should be > f so that the 
      *   virtual image is on the same side as the object
      */
-    pos = new Vector3(0, 1, -5);
-    f = .4;
-    ipd = .6;
-    eyeRelief = .18;
-    distLens2Display = .39;
-    displayWidth = 1.2096;
-    displayHeight = .6803;
-    displayDepth = .05;
-    lensDiameter = .34;
-    lensDepth = .05;
-    eyeDiameter = .15;
-    farFromNear = 10;
+    pos = new Vector3(0, .1, -.5);
+    f = .04;
+    ipd = .06;
+    eyeRelief = .018;
+    distLens2Display = .039;
+    displayWidth = 0.12096;
+    displayHeight = .06803;
+    displayDepth = .005;
+    lensDiameter = .034;
+    lensDepth = .005;
+    eyeDiameter = .015;
+    farFromNear = 2;
 
     // Calculated values
     distEye2Display!: number;
@@ -174,16 +174,12 @@ export class HMD {
      */
     get sliderParams() {
         return {
-            f: { min: 0.1, max: 2, step: 0.01 },
-            ipd: { min: 0.001, max: 2, step: 0.01 },
-            eyeRelief: { min: 0.001, max: 10, step: 0.01 },
-            distLens2Display: { min: 0.1, max: 2, step: 0.01 },
-            displayWidth: { min: 0.5, max: 5, step: 0.01 },
-            displayHeight: { min: 0.5, max: 5, step: 0.01 },
-            //displayDepth: { min: 0.01, max: 0.1, step: 0.01 },
-            //lensDiameter: { min: 0.1, max: 0.5, step: 0.01 },
-            //lensDepth: { min: 0.01, max: 0.1, step: 0.01 },
-            //eyeDiameter: { min: 0.1, max: 0.5, step: 0.01 },
+            f: { min: 0.01, max: 0.2, step: 0.001 },
+            ipd: { min: 0.0001, max: 0.2, step: 0.001 },
+            eyeRelief: { min: 0.0001, max: 1, step: 0.001 },
+            distLens2Display: { min: 0.01, max: 0.2, step: 0.001 },
+            displayWidth: { min: 0.05, max: 0.5, step: 0.001 },
+            displayHeight: { min: 0.05, max: 0.5, step: 0.001 },
         };
     }
 
@@ -348,7 +344,7 @@ export class HMD {
         this.display = MeshBuilder.CreateBox('display', 
             { width: this.displayWidth, height: this.displayHeight, depth: this.displayDepth }, this.scene);
         this.display.enableEdgesRendering();
-        this.display.edgesWidth = 1;
+        this.display.edgesWidth = MESH_EDGE_WIDTH;
         this.display.visibility = 0.3;
         this.display.edgesColor = new Color4(0.5, 0.5, 1, 1);
         this.display.position.copyFrom(this.pos); // this the anchor
@@ -357,7 +353,7 @@ export class HMD {
             { diameter: this.lensDiameter, height: this.lensDepth, tessellation: 24 }, this.scene);
         this.lensL.rotation.x = Math.PI / 2;
         this.lensL.enableEdgesRendering();
-        this.lensL.edgesWidth = 1;
+        this.lensL.edgesWidth = MESH_EDGE_WIDTH;
         this.lensL.visibility = 0.3;
         this.lensL.edgesColor = new Color4(0.5, 0.5, 1, 1);
         this.lensL.parent = this.display;
@@ -368,7 +364,7 @@ export class HMD {
             { diameter: this.lensDiameter, height: this.lensDepth, tessellation: 24 }, this.scene);
         this.lensR.rotation.x = Math.PI / 2;
         this.lensR.enableEdgesRendering();
-        this.lensR.edgesWidth = 1;
+        this.lensR.edgesWidth = MESH_EDGE_WIDTH;
         this.lensR.visibility = 0.3;
         this.lensR.edgesColor = new Color4(0.5, 0.5, 1, 1);
         this.lensR.parent = this.display;

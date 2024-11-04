@@ -61,14 +61,14 @@ export class UI {
                 });
 
                 const textBlock = new GUI.TextBlock();
-                textBlock.text = `${key}: ${slider.value.toFixed(2)}`;
+                textBlock.text = `${key}: ${slider.value.toFixed(3)}`;
                 textBlock.height = '20px';
                 textBlock.color = 'white';
                 textBlock.textHorizontalAlignment = GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
 
                 // update the text block when the slider changes
                 slider.onValueChangedObservable.add(() => {
-                    textBlock.text = `${key}: ${slider.value.toFixed(2)}`;
+                    textBlock.text = `${key}: ${slider.value.toFixed(3)}`;
                 });
 
                 // add the text block and slider to the stack panel
@@ -102,9 +102,9 @@ export class UI {
                 //const typedKey = key as keyof typeof displayParams;
                 //const value = displayParams[typedKey];
 
-                //// Ensure the value is numeric before using .toFixed(2)
+                //// Ensure the value is numeric before using .toFixed(3)
                 //if (typeof value === 'number') {
-                    //textBlock.text = `${key}: ${value.toFixed(2)}`;
+                    //textBlock.text = `${key}: ${value.toFixed(3)}`;
                 //} else {
                     //textBlock.text = `${key}: ${value}`;
                 //}
@@ -119,10 +119,10 @@ export class UI {
                     //// fetch the latest value
                     //displayParams = hmd.displayParams;
 
-                    //// Ensure the value is numeric before using .toFixed(2)
+                    //// Ensure the value is numeric before using .toFixed(3)
                     //const value = displayParams[typedKey];
                     //if (typeof value === 'number') {
-                        //textBlock.text = `${key}: ${value.toFixed(2)}`;
+                        //textBlock.text = `${key}: ${value.toFixed(3)}`;
                     //} else {
                         //textBlock.text = `${key}: ${value}`;
                     //}
@@ -137,9 +137,9 @@ export class UI {
                 const typedKey = key as keyof typeof displayCalculatedVals;
                 const value = displayCalculatedVals[typedKey];
 
-                // Ensure the value is numeric before using .toFixed(2)
+                // Ensure the value is numeric before using .toFixed(3)
                 if (typeof value === 'number') {
-                    textBlock.text = `${key}: ${value.toFixed(2)}`;
+                    textBlock.text = `${key}: ${value.toFixed(3)}`;
                 } else {
                     textBlock.text = `${key}: ${value}`;
                 }
@@ -154,10 +154,10 @@ export class UI {
                     // fetch the latest value
                     displayCalculatedVals = hmd.displayCalculatedVals;
 
-                    // Ensure the value is numeric before using .toFixed(2)
+                    // Ensure the value is numeric before using .toFixed(3)
                     const value = displayCalculatedVals[typedKey];
                     if (typeof value === 'number') {
-                        textBlock.text = `${key}: ${value.toFixed(2)}`;
+                        textBlock.text = `${key}: ${value.toFixed(3)}`;
                     } else {
                         textBlock.text = `${key}: ${value}`;
                     }
