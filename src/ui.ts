@@ -1,6 +1,6 @@
-/** @File This is the UI "layer".
+/** 
+ * @File This is the UI "layer".
  * @author Chek
- * @lastUpdated 2 Nov 2024
  */
 import { EventState, Scene, VirtualJoystick } from '@babylonjs/core';
 import { HMD } from './hmd';
@@ -59,7 +59,6 @@ export class UI {
                 slider.background = 'white';
                 slider.onValueChangedObservable.add((value) => {
                     hmd.setParam(key, value)
-                    app.updateHMDEyeCameraViewports();
                     this.updatePIPViewPortBorder(app);
                 });
 
@@ -291,10 +290,13 @@ export class UI {
      * Update the PIP viewport border when the window (browser) is resized.
      */
     updatePIPViewPortBorder(app: App) {
+        // update the actual viewports first
+        app.updateHMDEyeCameraViewports();
+
+        // update the GUI rectangles
         this.pipViewPortBorderL.width = `${app.pipViewPortWidth * 100}%`;
         this.pipViewPortBorderL.height = `${app.pipViewPortHeight * 100}%`;
         this.pipViewPortBorderL.left = `${app.pipViewPortX * 100}%`;
-
         this.pipViewPortBorderR.width = `${app.pipViewPortWidth * 100}%`;
         this.pipViewPortBorderR.height = `${app.pipViewPortHeight * 100}%`;
         this.pipViewPortBorderR.left = `${app.pipViewPortX * 100 + app.pipViewPortWidth * 100}%`;

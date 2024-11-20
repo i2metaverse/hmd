@@ -2,7 +2,6 @@
  * @file HMD representing a VR headset's parameters and functionalities, 
  *       including setup for simulated eye cameras and their projections.
  * @author Chek
- * @lastUpdated 28 Oct 2024
  *
  * The HMD class represents a VR headset's parameters and functionalities,
  * including setup for simulated eye cameras and their projections.
@@ -18,7 +17,6 @@ import {
     Mesh,
     Observable,
 } from "@babylonjs/core";
-
 import { LAYER_HMD, LAYER_SCENE, MESH_EDGE_WIDTH } from "./constants";
 
 export class HMD {
@@ -38,8 +36,9 @@ export class HMD {
      *   displayHeight: 68.03mm
      *   lensDiameter: 34mm
      *
-     * TODO: think about whether eyeRelief should be > f so that the 
-     *   virtual image is on the same side as the object
+     * The f and distLens2Display are usually determined in a manner to 
+     * create a distEye2Img (focal distance) of around 1-2m for a comfortable 
+     * viewing experience.
      */
     pos = new Vector3(0, .1, -.5);
     f = .04;
@@ -397,6 +396,7 @@ export class HMD {
         //this.virtualImg.parent = this.display;
         //this.virtualImg.position.z = (this.distEye2Img - this.distEye2Display);
     }
+
     /**
      * Calculate the projection matrix for the HMD for an eye.
      *

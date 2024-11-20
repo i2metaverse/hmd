@@ -1,10 +1,9 @@
 /**
  * @file Main entry point for the application.
  * @author Chek
- * @lastUpdated 2 Nov 2024
  *
- * Here, we initialize the Babylon engine, create the scene (via App), create the UI and run the render loop.
- *
+ * Here, we initialize the Babylon engine, create the scene (via App), 
+ * create the UI and run the render loop.
  */
 import { Engine } from '@babylonjs/core';
 import { App } from './app';
@@ -31,6 +30,5 @@ app.createScene().then(scene => {
 // resize the canvas when the window is resized
 window.addEventListener('resize', function () {
     engine.resize();
-    app.updateHMDEyeCameraViewports();
     ui.updatePIPViewPortBorder(app)
 });

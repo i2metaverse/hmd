@@ -1,6 +1,6 @@
-/** @file This file contains the main class for the web application.
- * @author your instructors
- * @lastUpdated 2024-01-04
+/** 
+ * @file This file contains the main class for the web application.
+ * @author Chek
  *
  * Create a scene to illustrate how various hardware parameters in a VR HMD
  * affect the rendering of the virtual images for the left and right eyes.
