@@ -389,6 +389,7 @@ export class App {
 
     /**
      * Add a gaussian splat to the scene.
+     * - note that splatID = envID - 1
      * @param envID The environment ID to determine which splat to load.
      * @param scene The scene to add the Gaussian Splat to.
      */
@@ -429,9 +430,13 @@ export class App {
                     this.splatMesh.position = new Vector3(0, 0.3, 0);
                     this.splatMesh.scaling.setAll(0.2);
                 }
+                else if (splatID === 5) {
+                    this.splatMesh.position = new Vector3(0.2, 0.3, -1);
+                    this.splatMesh.scaling.setAll(10);
+                }
                 else if (splatID === 6) {
-                    this.splatMesh.position = new Vector3(0, 0.3, 0);
-                    this.splatMesh.scaling.setAll(5);
+                    this.splatMesh.position = new Vector3(1, 0.3, -2);
+                    this.splatMesh.scaling.setAll(10);
                 }
 
                 // Set the layer mask for the Gaussian Splat

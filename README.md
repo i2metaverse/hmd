@@ -4,7 +4,7 @@ The code uni**versity** for **D**eveloping **I**mmersive **A**pplications (**DIA
 
 This project is currently ambitious in name only :) but we hope for it to grow into a collection of learning resources for developing immersive applications.
 
-Currently, it only contains a VR head-mounted display (HMD) simulator that helps to interactively understand the optical and graphical concepts behind VR HMDs.
+Currently, it has one app: a VR head-mounted display (HMD) simulator that helps to interactively understand the optical and graphical concepts behind VR HMDs.
 
 One of the current motivations is to support the YouTube DIA series: https://youtube.com/playlist?list=PLMKD6gDV_13-jVPNyDLUd4y6gSw0lMM-h&si=CZzlTOKfM5KPz5Ee
 
@@ -59,7 +59,7 @@ The HMD class represents a VR headset's parameters and functionalities, includin
 
 The FrustumVisualizer class is used to visualize the frustum of a camera in the scene.
 
-The App class is responsible for creating the scene and updatig the scene based on the HMD.
+The App class is responsible for creating the scene and updating the scene based on the HMD.
 - App owns the HMD and the FrustumVisualizer.
 - App provides APIs for the UI to interact with the scene.
 
