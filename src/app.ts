@@ -428,6 +428,10 @@ export class App {
                     this.splatMesh.position = new Vector3(0, 0.3, 0);
                     this.splatMesh.scaling.setAll(0.2);
                 }
+                else if (splatID === 6) {
+                    this.splatMesh.position = new Vector3(0, 0.3, 0);
+                    this.splatMesh.scaling.setAll(5);
+                }
 
                 // Set the layer mask for the Gaussian Splat
                 this.splatMesh.layerMask = LAYER_SCENE;

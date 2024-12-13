@@ -23,7 +23,7 @@ export const LAYER_FRUSTUM = 0x4;
 export const LAYER_UI = 0x8;
 
 // IDs for the different environments
-export const MAX_ENV_ID = 6;
+export const MAX_ENV_ID = 8;
 
 // Configuration for the main camera
 export const MAIN_CAM_POS = new Vector3(0.7, 0.7, -1);
