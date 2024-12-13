@@ -404,8 +404,6 @@ export class App {
             "gs_Plants.splat",
             "gs_Fire_Pit.splat",
             "Halo_Believe.splat",
-            "family.ply",
-            "santorini.ply",
         ];
 
         // create a hemispheric light
@@ -429,14 +427,6 @@ export class App {
                 else if (splatID === 3) {
                     this.splatMesh.position = new Vector3(0, 0.3, 0);
                     this.splatMesh.scaling.setAll(0.2);
-                }
-                else if (splatID === 5) {
-                    this.splatMesh.position = new Vector3(0.2, 0.3, -1);
-                    this.splatMesh.scaling.setAll(10);
-                }
-                else if (splatID === 6) {
-                    this.splatMesh.position = new Vector3(1, 0.3, -2);
-                    this.splatMesh.scaling.setAll(10);
                 }
 
                 // Set the layer mask for the Gaussian Splat
