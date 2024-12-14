@@ -57,6 +57,7 @@ import { SPLATFileLoader } from "@babylonjs/loaders";
 import { FrustumVisualizer } from "./frustumVisualizer";
 import { HMD } from "./hmd";
 import {
+    LAYER_NONE,
     LAYER_SCENE,
     LAYER_UI,
     LAYER_HMD,
@@ -85,6 +86,9 @@ export class App {
     // make frustumVisualizerL and frustumVisualizerR global so that they can be toggled
     frustumVisualizerL: FrustumVisualizer | undefined;
     frustumVisualizerR: FrustumVisualizer | undefined;
+
+    // camera
+    private camera: FreeCamera;
 
     // PIP viewport parameters
     hmd!: HMD;
@@ -310,24 +314,24 @@ export class App {
         ); // (x, y, width, height)
         
         // Create a user camera that can be controlled by wasd and mouse
-        const camera = new FreeCamera(
+        this.camera = new FreeCamera(
             "camera",
             MAIN_CAM_POS,
             scene
         );
-        camera.viewport = new Viewport(0, 0, 1, 1);
-        camera.setTarget(Vector3.Zero());
-        camera.attachControl(this.engine.getRenderingCanvas(), true);
-        camera.keysUp = [87]; // W
-        camera.keysDown = [83]; // S
-        camera.keysLeft = [65]; // A
-        camera.keysRight = [68]; // D
-        camera.speed = CAM_SPEED; // slow down the camera movement
-        camera.minZ = 0.01; // prevent camera from going to 0
-        camera.maxZ = 100;
+        this.camera.viewport = new Viewport(0, 0, 1, 1);
+        this.camera.setTarget(Vector3.Zero());
+        this.camera.attachControl(this.engine.getRenderingCanvas(), true);
+        this.camera.keysUp = [87]; // W
+        this.camera.keysDown = [83]; // S
+        this.camera.keysLeft = [65]; // A
+        this.camera.keysRight = [68]; // D
+        this.camera.speed = CAM_SPEED; // slow down the camera movement
+        this.camera.minZ = 0.01; // prevent camera from going to 0
+        this.camera.maxZ = 100;
 
         // set camera layerMask to be able to render all
-        camera.layerMask = LAYER_SCENE | LAYER_HMD | LAYER_FRUSTUM;
+        this.camera.layerMask = LAYER_SCENE | LAYER_HMD | LAYER_FRUSTUM;
 
         // set a new camera to only render the GUI so that we can set it as the top layer to be interactible
         const guiCamera = new FreeCamera("guiCamera", Vector3.Zero(), scene);
@@ -337,7 +341,7 @@ export class App {
         guiCamera.viewport = new Viewport(0, 0, 1, 1);
 
         // Ensure this secondary camera renders over the main camera
-        scene.activeCameras = [camera, this.hmd.camL, this.hmd.camR, guiCamera]; // Render both cameras
+        scene.activeCameras = [this.camera, this.hmd.camL, this.hmd.camR, guiCamera]; // Render both cameras
 
         // get view and transform matrices from HMD
         let transformMat = this.hmd.transformMatrix;
@@ -504,9 +508,23 @@ export class App {
     }
 
     /**
-     * Move the camera by a given amount.
-     * - this is called by UI joystick
-     * @param dx The amount to move the camera in the x direction.
-     * @param dz The amount to move the camera in the z direction.
+     * Toggle the PIP viewports.
+     * - the main goal is to stop the rendering in the PIP viewports
+     *   so that it doesn't interfere with the splat rendering in the
+     *   main viewport
+     * - use the layer masks to control what is rendered
+     * @param scene The scene to toggle the PIP viewports in.
      */
+    togglePIPViewports(scene: Scene) {
+        // toggle the layer masks for the HMD eye cameras
+        this.hmd.camL.layerMask = 
+            this.hmd.camL.layerMask === LAYER_NONE ? LAYER_SCENE : LAYER_NONE;
+        this.hmd.camR.layerMask = 
+            this.hmd.camR.layerMask === LAYER_NONE ? LAYER_SCENE : LAYER_NONE;
+
+        // toggle the layer mask for the main camera
+        // - when the PIP viewports are toggled off, the main camera should not render the HMD
+        // - when the PIP viewports are toggled on, the main camera should render the HMD
+        //this.camera.layerMask = 
+    }
 }

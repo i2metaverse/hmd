@@ -17,10 +17,13 @@ import {Vector3} from "@babylonjs/core";
 // - 0x7: render the Scene, UI, and HMD
 // - 0x8: render the Frustum
 // - 0xf: render everything
+export const LAYER_NONE = 0x0;
 export const LAYER_SCENE = 0x1;
 export const LAYER_HMD = 0x2;
 export const LAYER_FRUSTUM = 0x4;
 export const LAYER_UI = 0x8;
+export const LAYER_SCENE_HMD_FRUSTUM = LAYER_SCENE | LAYER_HMD | LAYER_FRUSTUM;
+export const LAYER_SCENE_FRUSTUM = LAYER_SCENE | LAYER_FRUSTUM;
 
 // Configuration for the main camera
 export const MAIN_CAM_POS = new Vector3(0.7, 0.7, -1);

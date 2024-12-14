@@ -181,6 +181,12 @@ export class UI {
             app.frustumVisualizerR?.toggleVisibility();
         });
 
+        // create a toggle button to show/hide the PIP viewports
+        const togglePIPButton = this.createToggleButton('HMD View', '#008080', () => {
+            app.togglePIPViewports(scene);
+        });
+        buttonPanel.addControl(togglePIPButton);
+
         // Add frustum togglers
         buttonPanel.addControl(toggleFrustumL);
         buttonPanel.addControl(toggleFrustumR);
@@ -204,6 +210,10 @@ export class UI {
         advancedTexture.addControl(this.pipViewPortBorderL);
         advancedTexture.addControl(this.pipViewPortBorderR);
         this.updatePIPViewPortBorder(app);
+
+        // TODO:
+        // add PIP viewport borders layerMask so that we can toggle them on/off when we turn off the PIP viewport rendering
+        // need to add a different advancedTexture for the PIP viewports
 
         // add some textual instructions on top left to use WASD and mouse to move the camera
         const instructions = new GUI.TextBlock();
@@ -233,7 +243,6 @@ export class UI {
         advancedTexture.addControl(instructionsBackground);
         advancedTexture.addControl(instructions);
 
-
         // add leftbutton and rightbutton to a panel 20px from the previous buttonPanell
         const envButtonPanel = new GUI.StackPanel();
         envButtonPanel.isVertical = false;
@@ -258,6 +267,7 @@ export class UI {
         rightButton.width = '50px';
         envButtonPanel.addControl(leftButton);
         envButtonPanel.addControl(rightButton);
+
     }
 
     /** 
