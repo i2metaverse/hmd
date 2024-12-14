@@ -88,7 +88,7 @@ export class App {
     frustumVisualizerR: FrustumVisualizer | undefined;
 
     // camera
-    private camera: FreeCamera;
+    private camera!: FreeCamera;
 
     // PIP viewport parameters
     hmd!: HMD;
@@ -515,7 +515,7 @@ export class App {
      * - use the layer masks to control what is rendered
      * @param scene The scene to toggle the PIP viewports in.
      */
-    togglePIPViewports(scene: Scene) {
+    togglePIPViewports() {
         // toggle the layer masks for the HMD eye cameras
         this.hmd.camL.layerMask = 
             this.hmd.camL.layerMask === LAYER_NONE ? LAYER_SCENE : LAYER_NONE;

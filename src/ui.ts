@@ -183,7 +183,7 @@ export class UI {
 
         // create a toggle button to show/hide the PIP viewports
         const togglePIPButton = this.createToggleButton('HMD View', '#008080', () => {
-            app.togglePIPViewports(scene);
+            app.togglePIPViewports();
         });
         buttonPanel.addControl(togglePIPButton);
 
