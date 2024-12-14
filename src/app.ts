@@ -61,7 +61,6 @@ import {
     LAYER_UI,
     LAYER_HMD,
     LAYER_FRUSTUM,
-    MAX_ENV_ID,
     MAIN_CAM_POS,
     CAM_SPEED,
 } from "./constants";
@@ -75,6 +74,7 @@ export class App {
 
     // keep an id for the environment to load
     private envID = 0;
+    private maxEnvID = 5;
 
     // keep a reference to the splat mesh to dispose later
     private splatMesh!: Mesh;
@@ -216,7 +216,7 @@ export class App {
      */
     private loadEnvironment(envID: number, scene: Scene) {
         // envID 0 is the primitives environment
-        // envID 1 to MAX_ENV_ID are the Gaussian Splat environments
+        // envID 1 to maxEnvID are the Gaussian Splat environments
         if (envID === 0) {
             this.loadPrimitives(scene);
         }
@@ -389,22 +389,28 @@ export class App {
 
     /**
      * Add a gaussian splat to the scene.
-     * - note that splatID = envID - 1
+     * - the splat filenames are generated with generate-asset-filenames.sh
+     * - fetch the splat filenames from assets/assets.json
+     *
      * @param envID The environment ID to determine which splat to load.
      * @param scene The scene to add the Gaussian Splat to.
      */
-    private loadGaussianSplat(envID: number, scene: Scene) {
+    private async loadGaussianSplat(envID: number, scene: Scene) {
         // envID 0 is the primitives environment
-        // envID 1 to MAX_ENV_ID are the Gaussian Splat environments
+        // envID 1 to maxEnvID are the Gaussian Splat environments
         const splatID = envID - 1;
 
-        const splats = [
-            "gs_Sqwakers_trimed.splat",
-            "gs_Skull.splat",
-            "gs_Plants.splat",
-            "gs_Fire_Pit.splat",
-            "Halo_Believe.splat",
-        ];
+        //const splats = [
+            //"gs_Sqwakers_trimed.splat",
+            //"gs_Skull.splat",
+            //"gs_Plants.splat",
+            //"gs_Fire_Pit.splat",
+            //"Halo_Believe.splat",
+        //];
+
+        const response = await fetch("assets/assets.json");
+        const splatFilenames = await response.json();
+        this.maxEnvID = splatFilenames.length + 1;
 
         // create a hemispheric light
         const hemiLight = new HemisphericLight('hemiLight', new Vector3(0, 1, 0), scene);
@@ -414,23 +420,21 @@ export class App {
         SceneLoader.ImportMeshAsync(
             "splat",
             "assets/",
-            splats[splatID],
+            splatFilenames[splatID],
             scene).then((result) => {
                 // save the mesh to be able to dispose later
                 this.splatMesh = result.meshes[0] as Mesh;
                 this.splatMesh.scaling.setAll(0.3);
 
-                // Set the position of the Gaussian Splat
+                // skull
                 if (splatID === 1) {
                     this.splatMesh.rotation = new Vector3(0, 3.3*Math.PI, 0);
                 }
-                else if (splatID === 3) {
+
+                // fire pit
+                else if (splatID === 2) {
                     this.splatMesh.position = new Vector3(0, 0.3, 0);
                     this.splatMesh.scaling.setAll(0.2);
-                }
-                else if (splatID === 6) {
-                    this.splatMesh.position = new Vector3(0, 0.3, 0);
-                    this.splatMesh.scaling.setAll(5);
                 }
 
                 // Set the layer mask for the Gaussian Splat
@@ -491,10 +495,10 @@ export class App {
 
         // load the next environment
         if (isNext) {
-            this.envID = (this.envID + 1) % MAX_ENV_ID;
+            this.envID = (this.envID + 1) % this.maxEnvID;
         }
         else {
-            this.envID = (this.envID - 1 + MAX_ENV_ID) % MAX_ENV_ID;
+           this.envID = (this.envID - 1 + this.maxEnvID) % this.maxEnvID;
         }
         this.loadEnvironment(this.envID, scene);
     }

@@ -4,8 +4,9 @@
     "description": "",
     "main": "index.js",
     "scripts": {
-        "dev": "vite",
-        "build": "tsc && vite build && ./decorate-html.sh && ./copy-assets.sh",
+        "dev": "./generate-asset-filenames.sh && vite",
+        "update-assets": "./generate-asset-filenames.sh",
+        "build": "tsc && ./generate-asset-filenames.sh && vite build && ./decorate-html.sh && ./copy-assets.sh",
         "copy-assets": "./copy-assets.sh",
         "decorate": "./decorate-html.sh",
         "jekyll": "./setup-jekyll.sh",
@@ -23,6 +24,7 @@
         "@babylonjs/gui": "^7.31.0",
         "@babylonjs/loaders": "^7.32.0",
         "@babylonjs/materials": "^7.30.0",
+        "@types/node": "^22.10.2",
         "babylonjs": "^7.28.0"
     },
     "devDependencies": {
