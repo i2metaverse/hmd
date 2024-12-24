@@ -10,7 +10,7 @@ One of the current motivations is to support the YouTube DIA series: https://you
 
 # How to run
 
-Just go to the live page built from the latest version that is served via GitHub pages: https://sit-dia.github.io/dia-playground/ 
+Just go to the live page built from the latest version that is served via GitHub pages: https:diaversity.org
 
 ## Some interesting things to try
 
@@ -33,6 +33,7 @@ This is a TypeScript project that uses npm for package management. You need to h
 3. Run `npm run dev` to start the development server
 
 You can check out the `package.json` file to see other available scripts.
+- note that the `npm run build` script prepares the project for deployment on github pages
 
 # Architecture
 

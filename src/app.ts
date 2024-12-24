@@ -430,6 +430,12 @@ export class App {
                 this.splatMesh = result.meshes[0] as Mesh;
                 this.splatMesh.scaling.setAll(0.3);
 
+                // for filename containing "splatfacto", rotate the mesh
+                if (splatFilenames[splatID].includes("splatfacto")) {
+                    // Apply -90 degrees rotation around the X-axis
+                    this.splatMesh.rotation = new Vector3(-Math.PI / 2, 0, 0);
+                }
+
                 // skull
                 if (splatID === 1) {
                     this.splatMesh.rotation = new Vector3(0, 3.3*Math.PI, 0);

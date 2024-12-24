@@ -13,29 +13,43 @@ fi
 # Start building the JSON array
 echo "[" > "$OUTPUT_FILE"
 
-# Loop through .splat files in the assets directory
+# Initialize variables
 FIRST=true
-for file in "$ASSETS_DIR"/*.splat; do
-    # Check if any .splat files exist
-    if [ ! -e "$file" ]; then
-        echo "Error: No .splat files found in '$ASSETS_DIR'."
-        echo "[]" > "$OUTPUT_FILE" # Create an empty JSON array
-        exit 1
-    fi
 
-    # Append a comma on the same line if this is not the first file
-    if [ "$FIRST" = true ]; then
-        FIRST=false
-    else
-        echo "," >> "$OUTPUT_FILE"
-    fi
+# Function to process files with a specific extension
+process_files() {
+    local EXTENSION=$1
+    for file in "$ASSETS_DIR"/*.$EXTENSION; do
+        # Check if any files with the given extension exist
+        if [ ! -e "$file" ]; then
+            continue
+        fi
 
-    # Add the filename to the JSON array
-    BASENAME=$(basename "$file")
-    echo "  \"$BASENAME\"" >> "$OUTPUT_FILE"
-done
+        # Append a comma on the same line if this is not the first file
+        if [ "$FIRST" = true ]; then
+            FIRST=false
+        else
+            echo "," >> "$OUTPUT_FILE"
+        fi
 
-# End the JSON array
-echo "]" >> "$OUTPUT_FILE"
+        # Add the filename to the JSON array
+        BASENAME=$(basename "$file")
+        echo "  \"$BASENAME\"" >> "$OUTPUT_FILE"
+    done
+}
+
+# Process .splat files
+process_files "splat"
+
+# Process .ply files
+process_files "ply"
+
+# If no files were found, output an empty JSON array
+if [ "$FIRST" = true ]; then
+    echo "[]" > "$OUTPUT_FILE"
+else
+    # End the JSON array
+    echo "]" >> "$OUTPUT_FILE"
+fi
 
 echo "Successfully generated '$OUTPUT_FILE'."
