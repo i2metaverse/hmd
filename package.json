@@ -9,7 +9,6 @@
         "build": "tsc && ./generate-asset-filenames.sh && vite build && ./decorate-html.sh && ./copy-assets.sh",
         "copy-assets": "./copy-assets.sh",
         "decorate": "./decorate-html.sh",
-        "jekyll": "./setup-jekyll.sh",
         "preview": "vite preview",
         "test": "vitest --reporter=verbose",
         "test:ui": "vitest --ui",
