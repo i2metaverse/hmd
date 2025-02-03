@@ -410,6 +410,12 @@ export class HMD {
      * The eye perceives a virtual image formed by light from the display passing through the lens.
      * In optical terms, the display is the "real" object, and the virtual image is what the eye
      * "sees" through the lens, effectively becoming our screen for rendering 3D objects.
+     * Note that in traditional optics, you think about a projector shooting light through a lens 
+     * to form a real image on a screen. If shown raw, the real image would be inverted. This effect
+     * is only achieved when f < distLens2Display, which is not the case for HMDs. In HMDs, the
+     * virtual image is on the same side as the object, similar to a magnifying glass. This is achieved
+     * by setting f > distLens2Display, resulting in a -ve distLens2Img (i.e., the virtual image is
+     * on the same side as the object) and with the image being upright.
      *
      * Frustum Setup:
      * We define a frustum that spans this virtual image (it's like placing the virtual image 
@@ -433,7 +439,7 @@ export class HMD {
      * - then we derive the frustum's near plane dimensions from the virtual image.
      *
      * Common Misunderstandings:
-     * The virtual image itself is not an object rendered on the near plane serves as a reference
+     * The virtual image itself is not an object rendered on the near plane; it serves as a reference
      * to set up the frustum correctly. Only 3D scene objects are rendered. The virtual image 
      * guides the frustum so that objects are rendered at correct distances, providing the illusion
      * of depth when viewed through the lens. Imagine that when you're looking at things in the 
@@ -451,10 +457,12 @@ export class HMD {
     public calcProjectionMatrix() {
         // update eye to display distance in case something changed
         // - TODO: this causes the frustum to increase when eyeRelief is increased which
-        //  is not correct
+        //   may not be not correct
         this.distEye2Display = this.eyeRelief + this.distLens2Display;
 
         // calculate magnification factor
+        // - for HMD, the f needs to be > distLens2Display (or the object distance) so that
+        //   an upright virtual image is formed on the same side as the object (the display)
         // - note that if f < distLens2Display, then it will be -ve, i.e., 
         //   a real inverted image will be formed that should be projected on a screen
         // - else it will be +ve, i.e., a virtual image will be formed in the lens
@@ -478,7 +486,7 @@ export class HMD {
         this.distLens2Img = Math.abs(1 / (1 / this.f - 1 / this.distLens2Display));
 
         // calculate the distance from the eye to the virtual image
-        // - it is -ve in conceptual terms
+        // - it is -ve in conceptual terms but we use the abs value for calculations
         this.distEye2Img = this.distLens2Img + this.eyeRelief;
 
         // calculate the near plane distance

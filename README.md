@@ -2,23 +2,49 @@
 
 The code uni**versity** for **D**eveloping **I**mmersive **A**pplications (**DIA**).
 
-This project is currently ambitious in name only :) but we hope for it to grow into a collection of learning resources for developing immersive applications.
+This project is currently ambitious in name only :) but we hope for it to grow into a collection of open-source learning resources for developing immersive applications.
 
 Currently, it has one app: a VR head-mounted display (HMD) simulator that helps to interactively understand the optical and graphical concepts behind VR HMDs.
 
 One of the current motivations is to support the YouTube DIA series: https://youtube.com/playlist?list=PLMKD6gDV_13-jVPNyDLUd4y6gSw0lMM-h&si=CZzlTOKfM5KPz5Ee
 
+# Project Status
+
+## Current Features
+- Simulate a VR HMD's rendering of a scene in the two eye cameras
+- Visualize the frustum of the eye cameras
+- Adjust the HMD parameters (IPD, eye relief, lens-to-display distance, etc.)
+- View how various calculated parameters (e.g., width/height of virtual image, FOVs, etc.) change as the HMD parameters change
+- Switch scenes across primitive scenes and open source gaussian splats
+- Toggle frustum visualization on/off
+- Basic WASD + mouse camera movement
+
+## Known Issues
+- Flickering in gaussian splat scenes due to rendering multiple 3DGS rendered viewport (temporary fix: click 'HMD View' button to disable rendering of eye cameras)
+- Large gaussian splats may not get cleared properly when rapidly switching scenes
+- etc.
+
+## Roadmap
+
+### Short-term
+- Fix critical bugs
+- Add rendering of the virtual image planes
+
+### Mid-term
+- Add interaction mechanisms in VR
+
+### Long-term
+- Transition into a platform of multiple implementation-focused learning resources for developing immersive applications
+
 # How to run
 
-Just go to the live page built from the latest version that is served via GitHub pages: https:diaversity.org
+Just go to the live page built from the latest version that is served via GitHub pages: https://diaversity.org
 
-## Some interesting things to try
-
-Increase the distLens2Display until it is greater than the focal length, f, of the lens. Something will flip...
-
-Increase the IPD until the frustum do not overlap anymore.
-
-Reduce the eyeRelief to see how the frustum changes.
+### Some interesting things to try
+- Increase the distLens2Display until it is greater than the focal length, f, of the lens. Something will flip...
+- Increase the IPD until the frustum do not overlap anymore.
+- Reduce the eyeRelief to see how the frustum changes.
+- etc...
 
 # How to build and run locally
 
@@ -28,11 +54,12 @@ This is a TypeScript project that uses npm for package management. You need to h
 
 ## Steps
 
-1. Clone the repository
+1. Clone the repository and `cd` into the cloned directory
 2. Run `npm i` to install the dependencies as specified in `package.json`
 3. Run `npm run dev` to start the development server
+4. Open your browser and navigate to `http://localhost:5173/` or the URL shown in the terminal if it is different
 
-You can check out the `package.json` file to see other available scripts.
+You can inspect the `package.json` file to see other available scripts.
 - note that the `npm run build` script prepares the project for deployment on github pages
 
 # Architecture
@@ -83,6 +110,18 @@ The math and implementation were studied from the following sources:
 Gaussian splats were kindly provided at 
 - https://github.com/BabylonJS/Assets/tree/master/splats
 
-# Naming Conventions
+# Contributions
+We welcome contributions from the community! Whether it's improving documentation, enhancing features, or fixing bugs, your input is valuable. To get started:
+1. Fork the repository.
+2. Create a feature branch (`git checkout -b feature/your-feature`).
+3. Commit changes with clear messages (`git commit -m "Your message"`).
+4. Push to the branch and open a Pull Request.
+
+Join us in our mission to democratize immersive education! 🚀
+
+## Naming Conventions
 
 Files are named using camelCase. For example, `myModule.ts`, to follow Babylon.js naming conventions.
+
+# License
+This project is licensed under the MIT License - see the LICENSE file for details.

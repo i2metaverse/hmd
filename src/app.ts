@@ -1,8 +1,12 @@
 /** 
- * @file This file contains the main class for the web application.
+ * @file This app class for the web application.
  * @author Chek
  *
- * Create a scene to illustrate how various hardware parameters in a VR HMD
+ * This app class implements the core logic for the web application.
+ * - contains the HMD and FrustumVisualizer components
+ * - provides methods to UI to interact with the scene
+ *
+ * In the web app is to illustrate how various hardware parameters in a VR HMD
  * affect the rendering of the virtual images for the left and right eyes.
  *
  * This will highlight the differences between the left and right eye images for:
@@ -10,33 +14,36 @@
  * - field of view (FOVs)
  * - lookat points
  *
- * The scene to be rendered will have a cuboid, a cone and a ground plane.
+ * The scene can be navigated using the main camera with wasd and mouse controls.
  *
- * The eyes will be represented by two spheres, one for each eye.
+ * Users can switch the scene environment to various gaussian splats.
  *
- * The HMD will be a transparent box with a display screen and two lenses inside.
- * The parameters of the HMD will be adjustable through sliders:
+ * The eyes are be represented by two spheres, one for each eye.
+ *
+ * The HMD is a transparent box with a display screen and two lenses inside.
+ * The parameters of the HMD can be adjusted through sliders:
  * - ipd: interpupillary distance
  * - eyeRelief: eye relief
  * - distLens2Display: distance from the display screen to the lenses
  * - displayWidth: width of the display screen
  * - displayHeight: height of the display screen
  * - f: focal length of the lenses
+ * - etc.
  *
- * Some resultant calculated parameters will be displayed:
+ * Some resultant calculated parameters are displayed:
  * - distLens2Img: distance from the lenses to the virtual image
  * - imgWidthL: width of the virtual image for the left eye
  * - imgHeightL: height of the virtual image for the left eye
  * - imgWidthR: width of the virtual image for the right eye
  * - imgHeightR: height of the virtual image for the right eye
+ * - etc.
  *
  * The left/right frustums will dynamically adjust based on the parameters of the HMD.
  *
- * There will be an overlay on the screen to show the left and right eye images.
+ * There will be an overlay on the screen to show the left and right eye rendered images.
+ * Note that configuration params are in constants.ts.
  */
 
-
-// imports after the above so that I can easily jump to top and adjust the params
 import {
     Engine,
     Scene,
@@ -92,7 +99,7 @@ export class App {
 
     // PIP viewport parameters
     hmd!: HMD;
-    pipViewPortWidth = 0.25;
+    pipViewPortWidth = 0.25; //TODO shift to constants
     pipViewPortHeight!: number;
     pipViewPortX!: number;
     pipViewPortY!: number;
@@ -145,6 +152,8 @@ export class App {
      * Construct an environment based on a pre-made model. 
      * @param scene The scene to load the environment into.
      * @param modelPath The path to the model to load.
+     *
+     * TODO potentially deprecate
      */
     private loadModel(scene: Scene, modelPath: string) {
         this.loadLights(scene);
@@ -281,8 +290,6 @@ export class App {
     /**
      * Create the scene.
      * @returns A promise that resolves when the application is done running.
-     * @remarks This is the main entry point for the application.
-     *
      */
     async createScene() {
         // Create the BabylonJS scene
