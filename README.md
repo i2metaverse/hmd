@@ -109,6 +109,9 @@ The math and implementation were studied from the following sources:
 
 Gaussian splats were kindly provided at 
 - https://github.com/BabylonJS/Assets/tree/master/splats
+- https://huggingface.co/VladKobranov/splats
+
+All rights to the gaussian splats are reserved to their respective owners/authors.
 
 # Contributions
 We welcome contributions from the community! Whether it's improving documentation, enhancing features, or fixing bugs, your input is valuable. To get started:
@@ -124,4 +127,5 @@ Join us in our mission to democratize immersive education! 🚀
 Files are named using camelCase. For example, `myModule.ts`, to follow Babylon.js naming conventions.
 
 # License
+
 This project is licensed under the MIT License - see the LICENSE file for details.

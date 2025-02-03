@@ -7,7 +7,7 @@
  */
 import { Engine } from '@babylonjs/core';
 import { App } from './app';
-import {UI} from './ui';
+import { UI } from './ui';
 
 // get the canvas element
 const canvas = <HTMLCanvasElement>document.getElementById('renderCanvas');

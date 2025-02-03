@@ -443,14 +443,22 @@ export class App {
                     this.splatMesh.rotation = new Vector3(-Math.PI / 2, 0, 0);
                 }
 
-                // skull
-                if (splatID === 1) {
+                // if filename contains skull
+                if (splatFilenames[splatID].includes("skull")) {
                     this.splatMesh.rotation = new Vector3(0, 3.3*Math.PI, 0);
                 }
 
-                // fire pit
-                else if (splatID === 2) {
+                // if filename contains "firePit"
+                if (splatFilenames[splatID].includes("firePit")) {
                     this.splatMesh.position = new Vector3(0, 0.3, 0);
+                    this.splatMesh.scaling.setAll(0.2);
+                }
+
+                // if filename contains "kotofuri"
+                if (splatFilenames[splatID].includes("kotofuri")) {
+                    this.splatMesh.position = new Vector3(1.3, -1.5, -1.7);
+                    // rotate around y by 70 degrees
+                    this.splatMesh.rotation = new Vector3(0, Math.PI * 0.5, 0);
                     this.splatMesh.scaling.setAll(0.2);
                 }
 
@@ -515,7 +523,7 @@ export class App {
             this.envID = (this.envID + 1) % this.maxEnvID;
         }
         else {
-           this.envID = (this.envID - 1 + this.maxEnvID) % this.maxEnvID;
+            this.envID = (this.envID - 1 + this.maxEnvID) % this.maxEnvID;
         }
         this.loadEnvironment(this.envID, scene);
     }
