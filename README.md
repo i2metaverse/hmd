@@ -6,6 +6,8 @@ This project is currently ambitious in name only :) but we hope for it to grow i
 
 Currently, it has one app: a VR head-mounted display (HMD) simulator that helps to interactively understand the optical and graphical concepts behind VR HMDs.
 
+![demo](https://github.com/user-attachments/assets/dcddccde-f353-4098-9406-416448b85bfd)
+
 One of the current motivations is to support the YouTube DIA series: https://youtube.com/playlist?list=PLMKD6gDV_13-jVPNyDLUd4y6gSw0lMM-h&si=CZzlTOKfM5KPz5Ee
 
 # Project Status
