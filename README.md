@@ -1,14 +1,10 @@
-# DIAversity
+# HMD Simulator
 
-The code uni**versity** for **D**eveloping **I**mmersive **A**pplications (**DIA**).
-
-This project is currently ambitious in name only :) but we hope for it to grow into a collection of open-source learning resources for developing immersive applications.
-
-Currently, it has one app: a VR head-mounted display (HMD) simulator that helps to interactively understand the optical and graphical concepts behind VR HMDs.
+This a web-based VR head-mounted display (HMD) simulator that helps to interactively understand the optical and graphical concepts behind VR HMDs.
 
 ![demo](https://github.com/user-attachments/assets/dcddccde-f353-4098-9406-416448b85bfd)
 
-One of the current motivations is to support the YouTube DIA series: https://youtube.com/playlist?list=PLMKD6gDV_13-jVPNyDLUd4y6gSw0lMM-h&si=CZzlTOKfM5KPz5Ee
+One of the current motivation is to support the YouTube tutorial: https://youtu.be/OKD4jrnn4WE , but you play with it regardless of the tutorial.
 
 # Project Status
 
