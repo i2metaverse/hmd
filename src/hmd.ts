@@ -134,7 +134,9 @@ export class HMD {
     }
 
     /*
-     * Helper for the above getters of view matrices.
+     * Helper for the above getters of view matrices. The view matrix represents
+     * the transformation from world space to eye (cam) space. As long as the eyePos
+     * is different for the left and right eye, the view matrix will be different.
      * - use a lookat point straight in front of the lens as the target
      * @param isLeftEye Whether the eye is the left eye.
      * @returns The view matrix for the eye.
