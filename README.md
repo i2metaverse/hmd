@@ -36,7 +36,7 @@ One of the current motivation is to support the YouTube tutorial: https://youtu.
 
 # How to run
 
-Just go to the live page built from the latest version that is served via GitHub pages: https://diaversity.org
+Just go to the live page built from the latest version that is served via GitHub pages: https://hmd.diaversity.org
 
 ### Some interesting things to try
 - Increase the distLens2Display until it is greater than the focal length, f, of the lens. Something will flip...
