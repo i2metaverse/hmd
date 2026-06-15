@@ -823,22 +823,10 @@ export class HMD {
     //     c = - far / ( far - near );
     //     d = ( - far * near ) / ( far - near );
     this.projMatL = Matrix.FromValues(
-      x,
-      0,
-      0,
-      0,
-      0,
-      y,
-      0,
-      0,
-      a,
-      b,
-      c,
-      1,
-      0,
-      0,
-      d,
-      0,
+      x, 0, 0, 0,
+      0, y, 0, 0,
+      a, b, c, 1,
+      0, 0, d, 0,
     );
 
     // now do right eye calculations
@@ -847,22 +835,10 @@ export class HMD {
       (this.rightForRightEye + this.leftForRightEye) /
       (this.rightForRightEye - this.leftForRightEye);
     this.projMatR = Matrix.FromValues(
-      x,
-      0,
-      0,
-      0,
-      0,
-      y,
-      0,
-      0,
-      a,
-      b,
-      c,
-      1,
-      0,
-      0,
-      d,
-      0,
+      x, 0, 0, 0,
+      0, y, 0, 0,
+      a, b, c, 1,
+      0, 0, d, 0,
     );
   }
 
