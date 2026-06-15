@@ -29,9 +29,11 @@ import {
   Viewport,
   SceneLoader,
   Mesh,
+  Ray,
 } from "@babylonjs/core";
 import { SPLATFileLoader } from "@babylonjs/loaders";
 import { FrustumVisualizer } from "./frustumVisualizer";
+import { VacVisualizer } from "./vacVisualizer";
 import { HMD } from "./hmd";
 import {
   LAYER_NONE,
@@ -51,6 +53,8 @@ import {
   BASE_DISPLAY_WIDTH,
   BASE_DISPLAY_HEIGHT,
   DisplayMode,
+  VacMode,
+  VERGENCE_DIST_DEFAULT,
 } from "./constants";
 
 /**
@@ -73,6 +77,22 @@ export class App {
   // make frustumVisualizerL and frustumVisualizerR global so that they can be toggled
   frustumVisualizerL: FrustumVisualizer | undefined;
   frustumVisualizerR: FrustumVisualizer | undefined;
+
+  // VAC (vergence-accommodation conflict) visualizer, toggled from the UI
+  vacVisualizer: VacVisualizer | undefined;
+
+  // distance (metres) of the fixated target the eyes converge on.
+  // The accommodation distance is fixed by the optics (hmd.distEye2Img); this
+  // vergence distance is the user-driven half of the conflict.
+  // - vergenceDist: the value set by the Test-mode slider.
+  // - vacMode: whether vergence follows the real scene object (Scene) or the
+  //   slider (Test).
+  // - activeVergenceDist: the distance actually used for the current frame,
+  //   resolved from the mode; read by the UI for the live readout.
+  vergenceDist = VERGENCE_DIST_DEFAULT;
+  vacMode: VacMode = VacMode.Debug;
+  // active vergence distance used this frame (null when no object is in view)
+  activeVergenceDist: number | null = VERGENCE_DIST_DEFAULT;
 
   // camera
   private camera!: FreeCamera;
@@ -408,6 +428,11 @@ export class App {
       scene,
     );
 
+    // Create the VAC visualizer (anchored to the HMD, updated each frame).
+    // Hidden by default; toggled from the "VAC" button in the UI.
+    this.vacVisualizer = new VacVisualizer(scene);
+    this.vacVisualizer.setVisibility(false);
+
     // Add an observer as the render loop
     let elapsedSecs = 0.0;
     let animSpeed = 0.5;
@@ -431,6 +456,29 @@ export class App {
       this.frustumVisualizerR?.updateFrustumMesh(
         this.hmd.projMatR,
         this.hmd.viewMatrixR,
+      );
+
+      // update the VAC overlay using the current eye positions and HMD heading.
+      // accommodation distance is the fixed virtual-image distance from the optics.
+      // The vergence distance depends on the mode: in Scene mode it tracks the
+      // real object the HMD is looking at; in Test mode it is the slider value.
+      // Debug and Scene modes derive vergence from the scene raycast (the
+      // vergence marker lands on the looked-at object); Test uses the slider.
+      // In Debug the overlay is hidden (update() no-ops) but we still compute
+      // the numbers for the left readout.
+      let vergDist: number | null;
+      if (this.vacMode === VacMode.Test) {
+        vergDist = this.vergenceDist;
+      } else {
+        vergDist = this.computeSceneVergenceDist(scene); // null if nothing hit
+      }
+      this.activeVergenceDist = vergDist;
+      this.vacVisualizer?.update(
+        this.hmd.eyePosL,
+        this.hmd.eyePosR,
+        this.hmd.controlCam.getDirection(Vector3.Forward()),
+        this.hmd.distEye2Img,
+        vergDist,
       );
     });
 
@@ -692,6 +740,59 @@ export class App {
     } else {
       this.camera.layerMask = LAYER_SCENE | LAYER_HMD | LAYER_FRUSTUM | LAYER_SPLAT_MAIN;
     }
+  }
+
+  /**
+   * Set the vergence distance (metres) that the eyes converge on.
+   * Drives the variable half of the vergence-accommodation conflict.
+   * @param dist The new vergence distance in metres.
+   */
+  setVergenceDist(dist: number) {
+    this.vergenceDist = dist;
+  }
+
+  /**
+   * Set the VAC mode (Debug / Scene / Test). The 3D overlay is shown only in
+   * Scene and Test modes; Debug keeps it hidden and reports numbers in the text.
+   * @param mode The new VAC mode.
+   */
+  setVacMode(mode: VacMode) {
+    this.vacMode = mode;
+    this.vacVisualizer?.setVisibility(mode !== VacMode.Debug);
+  }
+
+  /**
+   * Get the vergence distance currently driving the VAC readout. In Debug/Scene
+   * modes this is the live distance to the looked-at object (null if no object is
+   * in view); in Test mode it is the slider value.
+   * @returns The active vergence distance in metres, or null when no target.
+   */
+  getActiveVergenceDist(): number | null {
+    return this.activeVergenceDist;
+  }
+
+  /**
+   * Cast a ray forward from the midpoint of the eyes and return the distance to
+   * the nearest scene object it hits. This drives the vergence distance in Scene
+   * mode, so the conflict reflects the real object the user is looking at.
+   * @param scene The scene to pick against.
+   * @returns The hit distance in metres, or null if nothing was hit.
+   */
+  private computeSceneVergenceDist(scene: Scene): number | null {
+    const eyeMid = this.hmd.eyePosL.add(this.hmd.eyePosR).scale(0.5);
+    const fwd = this.hmd.controlCam.getDirection(Vector3.Forward());
+    const ray = new Ray(eyeMid, fwd, 100);
+
+    // pick the nearest environment primitive or the main-camera splat mesh
+    const pick = scene.pickWithRay(
+      ray,
+      (m) =>
+        m.isPickable &&
+        m.isEnabled() &&
+        (m.name.startsWith("env_") || m.name.startsWith("splatMain")),
+    );
+    if (pick?.hit && pick.distance > 1e-3) return pick.distance;
+    return null;
   }
 
   /**

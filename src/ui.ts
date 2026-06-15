@@ -13,8 +13,16 @@
 import { EventState, Scene, VirtualJoystick } from '@babylonjs/core';
 import * as GUI from "@babylonjs/gui";
 import { HMD } from './hmd';
-import { LAYER_UI, VIEWPORT_BORDER_THICKNESS, DisplayMode} from './constants';
+import {
+    LAYER_UI,
+    VIEWPORT_BORDER_THICKNESS,
+    DisplayMode,
+    VacMode,
+    VERGENCE_DIST_MIN,
+    VERGENCE_DIST_MAX,
+} from './constants';
 import { App } from './app';
+import { VacVisualizer } from './vacVisualizer';
 /**
  * The UI class to add UI controls to the scene.
  */
@@ -96,6 +104,35 @@ export class UI {
             }
         }
 
+        // Test-mode vergence distance slider: places a hypothetical fixation
+        // target at a chosen distance so the learner can sweep the VAC. Only
+        // meaningful in Test mode, so it lives in its own panel that is hidden
+        // in Scene mode (where the real object sets the vergence distance).
+        const vergencePanel = new GUI.StackPanel();
+        vergencePanel.height = '40px';
+        vergencePanel.isVisible = app.vacMode === VacMode.Test;
+        const vergenceLabel = new GUI.TextBlock();
+        vergenceLabel.text = `vergenceDist: ${app.vergenceDist.toFixed(3)}`;
+        vergenceLabel.height = '20px';
+        vergenceLabel.color = '#ffd24a'; // gold, matching the VERGENCE overlay label
+        vergenceLabel.textHorizontalAlignment = GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
+        const vergenceSlider = new GUI.Slider();
+        vergenceSlider.minimum = VERGENCE_DIST_MIN;
+        vergenceSlider.maximum = VERGENCE_DIST_MAX;
+        vergenceSlider.value = app.vergenceDist;
+        vergenceSlider.height = '20px';
+        vergenceSlider.width = '200px';
+        vergenceSlider.color = '#e0a82a';
+        vergenceSlider.background = 'white';
+        vergenceSlider.onValueChangedObservable.add((value) => {
+            app.setVergenceDist(value);
+            vergenceLabel.text = `vergenceDist: ${value.toFixed(3)}`;
+            refreshVacStats();
+        });
+        vergencePanel.addControl(vergenceLabel);
+        vergencePanel.addControl(vergenceSlider);
+        userPanel.addControl(vergencePanel);
+
         // create a list of text blocks to show all the HMD params and calculated values
         // - make them tiny and packed so they don't take up much space
         // - place them on the left of the screen
@@ -160,6 +197,64 @@ export class UI {
             }
         }
 
+        // VAC (vergence-accommodation conflict) readout: accommodation is fixed by
+        // the optics, vergence is user-driven, and the dioptric difference is the
+        // conflict. Colour flips when the conflict leaves the zone of comfort.
+        const vacTitle = new GUI.TextBlock();
+        vacTitle.text = '-- VAC --';
+        vacTitle.height = '14px';
+        vacTitle.color = '#7fe9ff';
+        vacTitle.textHorizontalAlignment = GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
+        statsPanel.addControl(vacTitle);
+
+        const vacModeBlock = new GUI.TextBlock();
+        const vacAccomBlock = new GUI.TextBlock();
+        const vacVergBlock = new GUI.TextBlock();
+        const vacConflictBlock = new GUI.TextBlock();
+        for (const block of [vacModeBlock, vacAccomBlock, vacVergBlock, vacConflictBlock]) {
+            block.height = '12px';
+            block.color = '#7fe9ff';
+            block.textHorizontalAlignment = GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
+            statsPanel.addControl(block);
+        }
+        // colour-code the two halves of the conflict to match the 3D overlay
+        vacAccomBlock.color = '#33ccf2'; // cyan = accommodation
+        vacVergBlock.color = '#ffd24a';  // gold = vergence
+
+        const vacModeName = (m: VacMode) =>
+            m === VacMode.Debug ? 'debug' : m === VacMode.Scene ? 'scene object' : 'test slider';
+
+        // refresh the VAC readout from the current optics + active vergence distance
+        function refreshVacStats() {
+            const vergDist = app.getActiveVergenceDist();
+            vacModeBlock.text = `mode: ${vacModeName(app.vacMode)}`;
+            vacAccomBlock.text =
+                `accommodation: ${hmd.distEye2Img.toFixed(2)}m (${(1 / hmd.distEye2Img).toFixed(2)}D)`;
+
+            // no object in view (Debug/Scene looking at empty space): only the
+            // fixed accommodation is defined, so report the vergence as absent
+            if (vergDist === null) {
+                vacVergBlock.text = 'vergence: no object in view';
+                vacConflictBlock.text = 'conflict: -- (focus locked)';
+                vacConflictBlock.color = '#9fb4bb';
+                return;
+            }
+
+            const stats = VacVisualizer.computeStats(hmd.distEye2Img, vergDist);
+            vacVergBlock.text =
+                `vergence: ${stats.vergenceDist.toFixed(2)}m (${stats.vergenceDiopters.toFixed(2)}D)`;
+            const sign = stats.conflictDiopters >= 0 ? '+' : '';
+            const zone = stats.inComfortZone ? 'comfortable' : 'CONFLICT';
+            vacConflictBlock.text =
+                `conflict: ${sign}${stats.conflictDiopters.toFixed(2)}D (${zone})`;
+            vacConflictBlock.color = stats.inComfortZone ? '#69e07a' : '#f06464';
+        }
+        refreshVacStats();
+
+        // the vergence distance changes as the HMD/objects move (Debug/Scene),
+        // so keep the readout live every frame
+        scene.onBeforeRenderObservable.add(() => refreshVacStats());
+
         // create a rectangle to represent the VR centre lines
         this.vrCenterMarker = new GUI.Rectangle("vrCenterMarker");
         this.vrCenterMarker.width = "2px";
@@ -206,6 +301,26 @@ export class UI {
         });
         buttonPanel.addControl(toggleFrustumL);
         buttonPanel.addControl(toggleFrustumR);
+
+        // Single VAC toggle cycling Debug -> Scene -> Test. Debug keeps the 3D
+        // overlay off (numbers only, in the left text); Scene/Test show the 3D
+        // overlay, with the test-distance slider visible only in Test mode.
+        const VAC_CYCLE = [VacMode.Debug, VacMode.Scene, VacMode.Test];
+        const vacButtonText = (m: VacMode) =>
+            `VAC: ${m === VacMode.Debug ? 'debug' : m === VacMode.Scene ? 'scene' : 'test'}`;
+        const vacModeButton = this.createToggleButton(
+            vacButtonText(app.vacMode),
+            '#007a8a',
+            () => {
+                const next = VAC_CYCLE[(VAC_CYCLE.indexOf(app.vacMode) + 1) % VAC_CYCLE.length];
+                app.setVacMode(next);
+                vergencePanel.isVisible = next === VacMode.Test;
+                const label = vacModeButton.children?.[0] as GUI.TextBlock | undefined;
+                if (label) label.text = vacButtonText(next);
+                refreshVacStats();
+            },
+        );
+        buttonPanel.addControl(vacModeButton);
 
         // Add the buttonPanel to the userPanel
         this.advancedTexture.addControl(buttonPanel)
