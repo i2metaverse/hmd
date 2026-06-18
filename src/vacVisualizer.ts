@@ -34,7 +34,6 @@ import {
   StandardMaterial,
   Vector3,
 } from "@babylonjs/core";
-import * as GUI from "@babylonjs/gui";
 import { LAYER_FRUSTUM, VAC_COMFORT_DIOPTRES } from "./constants";
 
 /**
@@ -67,10 +66,9 @@ export class VacVisualizer {
   // Text labels annotate the world-space VAC elements. They are shown only when
   // a valid vergence target exists, so Scene mode does not leave stale labels
   // behind when the gaze ray misses.
-  private labelTexture!: GUI.AdvancedDynamicTexture;
-  private accomLabel!: GUI.TextBlock;
+  private accomLabel!: Mesh;
   private vergLabel!: Mesh;
-  private disparityLabel!: GUI.TextBlock;
+  private disparityLabel!: Mesh;
 
   // materials (emissive colours updated per frame to reflect comfort)
   private gazeMat: StandardMaterial;
@@ -127,17 +125,13 @@ export class VacVisualizer {
   constructor(scene: Scene) {
     this.scene = scene;
     this.scene.setRenderingAutoClearDepthStencil(3, true, true, true);
-    this.labelTexture = GUI.AdvancedDynamicTexture.CreateFullscreenUI(
-      "vacLabelUi",
-      true,
-      scene,
-    );
 
     // focus/accommodation reference: a soft optical surface where the eye focuses
     this.focusMat = new StandardMaterial("vacFocusMat", scene);
     this.focusMat.emissiveColor = new Color3(0.55, 0.86, 0.95);
     this.focusMat.diffuseColor = new Color3(0.12, 0.28, 0.34);
     this.focusMat.disableLighting = true;
+    this.focusMat.disableDepthWrite = true;
     this.focusMat.alpha = 0.72;
     this.focusMat.backFaceCulling = false;
     this.focusMat.opacityTexture = this.makeFocusFadeTexture(scene);
@@ -146,6 +140,7 @@ export class VacVisualizer {
     this.gazeMat = new StandardMaterial("vacGazeMat", scene);
     this.gazeMat.emissiveColor = new Color3(0.25, 0.9, 0.4);
     this.gazeMat.disableLighting = true;
+    this.gazeMat.disableDepthWrite = true;
 
     // vergence target marker: matched to the label, while gaze rays retain
     // comfort-state colouring.
@@ -153,17 +148,20 @@ export class VacVisualizer {
     this.vergenceMarkerMat.emissiveColor = new Color3(1, 0.82, 0.29);
     this.vergenceMarkerMat.diffuseColor = new Color3(0.62, 0.43, 0.08);
     this.vergenceMarkerMat.disableLighting = true;
+    this.vergenceMarkerMat.disableDepthWrite = true;
 
     // conflict bar: the depth gap between vergence and accommodation
     this.conflictMat = new StandardMaterial("vacConflictMat", scene);
     this.conflictMat.emissiveColor = new Color3(0.95, 0.3, 0.3);
     this.conflictMat.disableLighting = true;
+    this.conflictMat.disableDepthWrite = true;
 
     // where each gaze line crosses the focus plane (retinal disparity)
     this.disparityMat = new StandardMaterial("vacDisparityMat", scene);
     this.disparityMat.emissiveColor = new Color3(0.86, 0.58, 1);
     this.disparityMat.diffuseColor = new Color3(0.42, 0.18, 0.58);
     this.disparityMat.disableLighting = true;
+    this.disparityMat.disableDepthWrite = true;
 
     // fixed-focus optical element. A soft disc reads more like an HMD optical
     // surface than a hard debugging clipping plane.
@@ -205,28 +203,21 @@ export class VacVisualizer {
     this.disparityLabelAnchor.isPickable = false;
 
     // text labels (colours match the elements they annotate)
-    this.accomLabel = this.makeLabel(
+    this.accomLabel = this.makeWorldLabel(
       "vacAccomLabel",
       "ACCOMMODATION",
       "#b8f3ff",
-      18,
     );
-    this.accomLabel.linkWithMesh(this.focusPlane);
-    this.accomLabel.linkOffsetY = -62;
     this.vergLabel = this.makeWorldLabel(
       "vacVergLabel",
       "VERGENCE",
       "#ffd24a",
     );
-    this.disparityLabel = this.makeLabel(
+    this.disparityLabel = this.makeWorldLabel(
       "vacDisparityLabel",
       "RETINAL DISPARITY",
       "#dc94ff",
-      10,
     );
-    this.disparityLabel.linkWithMesh(this.disparityLabelAnchor);
-    this.disparityLabel.linkOffsetX = 20;
-    this.disparityLabel.linkOffsetY = 76;
 
     // gaze + conflict tubes (initial placeholder geometry, rebuilt on update)
     const o = Vector3.Zero();
@@ -242,6 +233,7 @@ export class VacVisualizer {
     );
 
     this.setLayerMask(LAYER_FRUSTUM);
+    this.setRenderingGroupId(3);
     this.setLabelsVisible(false);
     this.setVisibility(true);
   }
@@ -325,38 +317,9 @@ export class VacVisualizer {
   }
 
   /**
-   * Helper to create a screen-space text label linked to a world-space mesh.
-   * Used to annotate the accommodation / vergence / disparity elements so the
-   * overlay reads clearly without needing a separate key.
-   * @param name The GUI control name.
-   * @param text The label text.
-   * @param color The text colour (CSS string).
-   * @param fontSize The screen-space font size in pixels.
-   * @returns The created GUI text label.
-   */
-  private makeLabel(
-    name: string,
-    text: string,
-    color: string,
-    fontSize: number,
-  ): GUI.TextBlock {
-    const label = new GUI.TextBlock(name, text);
-    label.color = color;
-    label.fontFamily = "sans-serif";
-    label.fontSizeInPixels = fontSize;
-    label.fontWeight = "bold";
-    label.outlineColor = "#1b1b1b";
-    label.outlineWidth = 2;
-    label.resizeToFit = true;
-    label.textWrapping = false;
-    label.isPointerBlocker = false;
-    this.labelTexture.addControl(label);
-    return label;
-  }
-
-  /**
-   * Helper to create a camera-facing world-space label. Used for the vergence
-   * target because it needs to sit directly by the 3D marker.
+   * Helper to create a camera-facing world-space label. Keeping all VAC labels
+   * in the same coordinate system avoids duplicate screen-space overlays whose
+   * offsets drift when the camera or viewport changes.
    * @param name The mesh name.
    * @param text The label text.
    * @param color The text colour (CSS string).
@@ -390,7 +353,7 @@ export class VacVisualizer {
     mat.disableDepthWrite = true;
     mat.backFaceCulling = false;
 
-    const planeH = 0.045;
+    const planeH = 0.065;
     const plane = MeshBuilder.CreatePlane(
       name,
       { width: planeH * (texW / texH), height: planeH },
@@ -482,7 +445,11 @@ export class VacVisualizer {
       vergPoint,
       this.conflictRadius,
     );
+    this.accomLabel.position.copyFrom(focusCenter.add(worldUp.scale(0.09)));
     this.vergLabel.position.copyFrom(vergPoint.add(worldUp.scale(0.08)));
+    this.disparityLabel.position.copyFrom(
+      this.disparityLabelAnchor.position.add(worldUp.scale(-0.05)),
+    );
 
     // colour the comfort-dependent meshes
     const stats = VacVisualizer.computeStats(accommodationDist, vergenceDist);
@@ -516,10 +483,9 @@ export class VacVisualizer {
    * @param visible Whether the 3D text labels should be visible.
    */
   private setLabelsVisible(visible: boolean) {
-    for (const label of [this.accomLabel, this.disparityLabel]) {
+    for (const label of [this.accomLabel, this.disparityLabel, this.vergLabel]) {
       label.isVisible = visible;
     }
-    this.vergLabel.isVisible = visible;
   }
 
   /**
@@ -550,11 +516,21 @@ export class VacVisualizer {
   }
 
   /**
+   * Assign a rendering group to all VAC meshes. Drawing the overlay after scene
+   * and splat geometry keeps Manual mode visually consistent across environments.
+   * @param id The Babylon.js rendering group id.
+   */
+  public setRenderingGroupId(id: number) {
+    for (const m of this.meshes()) m.renderingGroupId = id;
+  }
+
+  /**
    * Dispose all VAC meshes and materials.
    */
   public dispose() {
+    this.accomLabel.material?.dispose(false, true);
     this.vergLabel.material?.dispose(false, true);
-    this.labelTexture.dispose();
+    this.disparityLabel.material?.dispose(false, true);
     for (const m of this.meshes()) m.dispose();
     this.gazeMat.dispose();
     this.vergenceMarkerMat.dispose();
@@ -577,7 +553,9 @@ export class VacVisualizer {
       this.gazeL,
       this.gazeR,
       this.conflictBar,
+      this.accomLabel,
       this.vergLabel,
+      this.disparityLabel,
     ];
   }
 }

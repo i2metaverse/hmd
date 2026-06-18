@@ -334,6 +334,8 @@ export class UI {
                 : m === VacMode.Scene ? 'scene' : 'manual'}`;
         const refreshVacControls = () => {
             vergencePanel.isVisible = app.vacMode === VacMode.Manual;
+            vergenceSlider.value = app.vergenceDist;
+            vergenceLabel.text = `vergenceDist: ${app.vergenceDist.toFixed(3)}`;
             const label = vacModeButton.children?.[0] as GUI.TextBlock | undefined;
             if (label) label.text = vacButtonText(app.vacMode);
             refreshVacStats();
@@ -345,7 +347,7 @@ export class UI {
                 const cycle = activeVacCycle();
                 const currentIndex = cycle.indexOf(app.vacMode);
                 const next = cycle[(currentIndex + 1) % cycle.length];
-                app.setVacMode(next);
+                app.setVacMode(next, scene);
                 refreshVacControls();
             },
         );

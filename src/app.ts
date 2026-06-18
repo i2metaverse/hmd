@@ -300,8 +300,14 @@ export class App {
       scene.materials.slice().forEach((mat) => {
         console.log(`Disposing of material: ${mat.name}`);
 
-        // keep the overlay material for the frustum visualizer & hmd
-        if (mat.name.startsWith("frustum") || mat.name.startsWith("hmd"))
+        // Keep persistent overlay/HMD materials. These meshes survive
+        // environment switches, so disposing their materials corrupts later VAC
+        // rendering after moving between primitive and Gaussian-splat scenes.
+        if (
+          mat.name.startsWith("frustum") ||
+          mat.name.startsWith("hmd") ||
+          mat.name.startsWith("vac")
+        )
           return;
 
         mat.dispose();
@@ -753,8 +759,7 @@ export class App {
   }
 
   /**
-   * True when the current environment is a Gaussian splat scene. Splat scenes
-   * currently do not expose reliable object-surface picking for VAC Scene mode.
+   * True when the current environment is a Gaussian splat scene.
    */
   isGaussianSplatEnvironment(): boolean {
     return this.envID !== 0;
@@ -765,14 +770,38 @@ export class App {
    * and Manual modes.
    * @param mode The new VAC mode.
    */
-  setVacMode(mode: VacMode) {
-    this.vacMode =
+  setVacMode(mode: VacMode, scene?: Scene) {
+    const nextMode =
       mode === VacMode.Scene && this.isGaussianSplatEnvironment()
         ? VacMode.Off
         : mode;
+    if (nextMode === VacMode.Manual && !this.isGaussianSplatEnvironment()) {
+      if (scene) {
+        this.primeManualVergenceFromScene(scene);
+      } else if (this.activeVergenceDist !== null) {
+        this.vergenceDist = this.activeVergenceDist;
+      }
+    }
+    this.vacMode = nextMode;
     this.vacVisualizer?.setVisibility(
       this.vacMode === VacMode.Scene || this.vacMode === VacMode.Manual,
     );
+  }
+
+  /**
+   * Seed Manual mode from the same scene ray used by VAC Scene mode. This keeps
+   * Manual visually identical to Scene on entry, while still allowing the slider
+   * to adjust the vergence distance afterward.
+   * @param scene The scene to pick against.
+   */
+  primeManualVergenceFromScene(scene: Scene) {
+    const sceneVergenceDist = this.computeSceneVergenceDist(scene);
+    if (sceneVergenceDist !== null) {
+      this.vergenceDist = sceneVergenceDist;
+      this.activeVergenceDist = sceneVergenceDist;
+    } else if (this.activeVergenceDist !== null) {
+      this.vergenceDist = this.activeVergenceDist;
+    }
   }
 
   /**
