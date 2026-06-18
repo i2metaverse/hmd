@@ -13,6 +13,7 @@ https://github.com/user-attachments/assets/5743b082-1396-4f69-91ba-68134cd0c647
 - Adjust the HMD parameters (IPD, eye relief, lens-to-display distance, etc.)
 - View how various calculated parameters (e.g., width/height of virtual image, FOVs, etc.) change as the HMD parameters change
 - Switch scenes across primitive scenes and open source gaussian splats
+- Visualize vergence-accommodation conflict (VAC) with accommodation, vergence, retinal disparity, and comfort-zone overlays
 - Enter into a "VR" mode that simulates the actual HMD view, allowing the user, when using a mobile device, to see the actual outputs in a Google Cardboard or similar HMD enclosure
 - Basic WASD + mouse camera movement
 - VAC scene mode is currently available for the primitive scene only. Gaussian splat scenes still support manual VAC adjustment, but scene-driven VAC is disabled until reliable splat point/surface picking is implemented.
@@ -29,8 +30,28 @@ Visit the live demo: **https://hmd.diaversity.org**
 - Increase the distLens2Display until it is greater than the focal length, f, of the lens. Something will flip...
 - Increase the IPD until the frustum do not overlap anymore.
 - Reduce the eyeRelief to see how the frustum changes.
+- Toggle VAC and compare the accommodation plane with the vergence target as you move between objects at different depths.
 
 </details>
+
+## VAC Simulator
+
+The VAC simulator visualizes vergence-accommodation conflict, a core perceptual issue in current stereoscopic HMDs. In the real world, accommodation and vergence usually agree: the eyes focus at the same distance where they rotate to converge. In most VR headsets, however, accommodation is fixed near the display's optical image distance, while vergence changes with the stereo depth of the rendered scene. This mismatch can make some virtual depths less comfortable to view.
+
+The simulator overlays this relationship directly in the 3D scene:
+
+- **ACCOMMODATION** marks the fixed optical focus plane produced by the HMD lens and display model.
+- **VERGENCE** marks the virtual depth where the two eyes converge for the current target.
+- **RETINAL DISPARITY** marks the gap between where the target projects through the two eyes at the accommodation plane.
+- The colored conflict bar shows the distance between accommodation and vergence, using the configured comfort threshold to indicate when the mismatch is likely to be comfortable or uncomfortable.
+
+Use the VAC button to cycle modes:
+
+- **VAC: off** hides the overlay while keeping the numeric readout available.
+- **VAC: scene** uses a forward ray from the HMD view into the primitive scene and places the vergence target on the looked-at object.
+- **VAC: manual** uses the vergence-distance slider. When entered from a primitive scene, Manual starts from the current scene-derived vergence distance so the visualization does not jump, then the slider can be used to explore other depths.
+
+Gaussian splat scenes skip **VAC: scene** for now because they do not yet provide reliable point or surface picking for the looked-at target. They still support **VAC: manual**, using the same rendered planes, labels, and comfort visualization as the primitive scene.
 
 ## Local Development
 
@@ -97,11 +118,17 @@ The application simply uses a 2-layer architecture: App and UI:
    |    +------------------------------------------------+
    -----| FrustumVisualizer (src/frustumVisualizer.ts)   |
         +------------------------------------------------+
+   |
+   |    +--------------------------------------+
+   -----| VacVisualizer (src/vacVisualizer.ts) |
+        +--------------------------------------+
 ```
 
 The HMD class represents a VR headset's parameters and functionalities, including setup for simulated eye cameras and their projections.
 
 The FrustumVisualizer class is used to visualize the frustum of a camera in the scene.
+
+The VacVisualizer class is used to render the VAC accommodation plane, vergence target, retinal-disparity marker, labels, and comfort-state conflict bar.
 
 The App class is responsible for creating the scene and updating the scene based on the HMD.
 - App owns the HMD and the FrustumVisualizer.
