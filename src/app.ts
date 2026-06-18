@@ -29,9 +29,11 @@ import {
   Viewport,
   SceneLoader,
   Mesh,
+  Ray,
 } from "@babylonjs/core";
 import { SPLATFileLoader } from "@babylonjs/loaders";
 import { FrustumVisualizer } from "./frustumVisualizer";
+import { VacVisualizer } from "./vacVisualizer";
 import { HMD } from "./hmd";
 import {
   LAYER_NONE,
@@ -51,6 +53,8 @@ import {
   BASE_DISPLAY_WIDTH,
   BASE_DISPLAY_HEIGHT,
   DisplayMode,
+  VacMode,
+  VERGENCE_DIST_DEFAULT,
 } from "./constants";
 
 /**
@@ -73,6 +77,22 @@ export class App {
   // make frustumVisualizerL and frustumVisualizerR global so that they can be toggled
   frustumVisualizerL: FrustumVisualizer | undefined;
   frustumVisualizerR: FrustumVisualizer | undefined;
+
+  // VAC (vergence-accommodation conflict) visualizer, toggled from the UI
+  vacVisualizer: VacVisualizer | undefined;
+
+  // distance (metres) of the fixated target the eyes converge on.
+  // The accommodation distance is fixed by the optics (hmd.distEye2Img); this
+  // vergence distance is the user-driven half of the conflict.
+  // - vergenceDist: the value set by the Manual-mode slider.
+  // - vacMode: whether vergence follows the real scene object (Scene) or the
+  //   slider (Manual).
+  // - activeVergenceDist: the distance actually used for the current frame,
+  //   resolved from the mode; read by the UI for the live readout.
+  vergenceDist = VERGENCE_DIST_DEFAULT;
+  vacMode: VacMode = VacMode.Off;
+  // active vergence distance used this frame (null when no object is in view)
+  activeVergenceDist: number | null = VERGENCE_DIST_DEFAULT;
 
   // camera
   private camera!: FreeCamera;
@@ -237,6 +257,9 @@ export class App {
     if (envID === 0) {
       this.loadPrimitives(scene);
     } else {
+      if (this.vacMode === VacMode.Scene) {
+        this.setVacMode(VacMode.Off);
+      }
       this.loadGaussianSplat(envID, scene);
     }
   }
@@ -277,8 +300,14 @@ export class App {
       scene.materials.slice().forEach((mat) => {
         console.log(`Disposing of material: ${mat.name}`);
 
-        // keep the overlay material for the frustum visualizer & hmd
-        if (mat.name.startsWith("frustum") || mat.name.startsWith("hmd"))
+        // Keep persistent overlay/HMD materials. These meshes survive
+        // environment switches, so disposing their materials corrupts later VAC
+        // rendering after moving between primitive and Gaussian-splat scenes.
+        if (
+          mat.name.startsWith("frustum") ||
+          mat.name.startsWith("hmd") ||
+          mat.name.startsWith("vac")
+        )
           return;
 
         mat.dispose();
@@ -408,6 +437,11 @@ export class App {
       scene,
     );
 
+    // Create the VAC visualizer (anchored to the HMD, updated each frame).
+    // Hidden by default; toggled from the "VAC" button in the UI.
+    this.vacVisualizer = new VacVisualizer(scene);
+    this.vacVisualizer.setVisibility(false);
+
     // Add an observer as the render loop
     let elapsedSecs = 0.0;
     let animSpeed = 0.5;
@@ -431,6 +465,27 @@ export class App {
       this.frustumVisualizerR?.updateFrustumMesh(
         this.hmd.projMatR,
         this.hmd.viewMatrixR,
+      );
+
+      // update the VAC overlay using the current eye positions and HMD heading.
+      // accommodation distance is the fixed virtual-image distance from the optics.
+      // The vergence distance depends on the mode: in Scene mode it tracks the
+      // real object the HMD is looking at; in Manual mode it is the slider value.
+      let vergDist: number | null;
+      if (this.vacMode === VacMode.Off) {
+        vergDist = null;
+      } else if (this.vacMode === VacMode.Manual) {
+        vergDist = this.vergenceDist;
+      } else {
+        vergDist = this.computeSceneVergenceDist(scene); // null if nothing hit
+      }
+      this.activeVergenceDist = vergDist;
+      this.vacVisualizer?.update(
+        this.hmd.eyePosL,
+        this.hmd.eyePosR,
+        this.hmd.controlCam.getDirection(Vector3.Forward()),
+        this.hmd.distEye2Img,
+        vergDist,
       );
     });
 
@@ -692,6 +747,95 @@ export class App {
     } else {
       this.camera.layerMask = LAYER_SCENE | LAYER_HMD | LAYER_FRUSTUM | LAYER_SPLAT_MAIN;
     }
+  }
+
+  /**
+   * Set the vergence distance (metres) that the eyes converge on.
+   * Drives the variable half of the vergence-accommodation conflict.
+   * @param dist The new vergence distance in metres.
+   */
+  setVergenceDist(dist: number) {
+    this.vergenceDist = dist;
+  }
+
+  /**
+   * True when the current environment is a Gaussian splat scene.
+   */
+  isGaussianSplatEnvironment(): boolean {
+    return this.envID !== 0;
+  }
+
+  /**
+   * Set the VAC mode (Off / Scene / Manual). The 3D overlay is shown in Scene
+   * and Manual modes.
+   * @param mode The new VAC mode.
+   */
+  setVacMode(mode: VacMode, scene?: Scene) {
+    const nextMode =
+      mode === VacMode.Scene && this.isGaussianSplatEnvironment()
+        ? VacMode.Off
+        : mode;
+    if (nextMode === VacMode.Manual && !this.isGaussianSplatEnvironment()) {
+      if (scene) {
+        this.primeManualVergenceFromScene(scene);
+      } else if (this.activeVergenceDist !== null) {
+        this.vergenceDist = this.activeVergenceDist;
+      }
+    }
+    this.vacMode = nextMode;
+    this.vacVisualizer?.setVisibility(
+      this.vacMode === VacMode.Scene || this.vacMode === VacMode.Manual,
+    );
+  }
+
+  /**
+   * Seed Manual mode from the same scene ray used by VAC Scene mode. This keeps
+   * Manual visually identical to Scene on entry, while still allowing the slider
+   * to adjust the vergence distance afterward.
+   * @param scene The scene to pick against.
+   */
+  primeManualVergenceFromScene(scene: Scene) {
+    const sceneVergenceDist = this.computeSceneVergenceDist(scene);
+    if (sceneVergenceDist !== null) {
+      this.vergenceDist = sceneVergenceDist;
+      this.activeVergenceDist = sceneVergenceDist;
+    } else if (this.activeVergenceDist !== null) {
+      this.vergenceDist = this.activeVergenceDist;
+    }
+  }
+
+  /**
+   * Get the vergence distance currently driving the VAC readout. In Off mode it
+   * is null; in Scene mode it is the live distance to the looked-at object
+   * (null if no object is in view); in Manual mode it is the slider value.
+   * @returns The active vergence distance in metres, or null when no target.
+   */
+  getActiveVergenceDist(): number | null {
+    return this.activeVergenceDist;
+  }
+
+  /**
+   * Cast a ray forward from the midpoint of the eyes and return the distance to
+   * the nearest scene object it hits. This drives the vergence distance in Scene
+   * mode, so the conflict reflects the real object the user is looking at.
+   * @param scene The scene to pick against.
+   * @returns The hit distance in metres, or null if nothing was hit.
+   */
+  private computeSceneVergenceDist(scene: Scene): number | null {
+    const eyeMid = this.hmd.eyePosL.add(this.hmd.eyePosR).scale(0.5);
+    const fwd = this.hmd.controlCam.getDirection(Vector3.Forward());
+    const ray = new Ray(eyeMid, fwd, 100);
+
+    // pick the nearest environment primitive or the main-camera splat mesh
+    const pick = scene.pickWithRay(
+      ray,
+      (m) =>
+        m.isPickable &&
+        m.isEnabled() &&
+        (m.name.startsWith("env_") || m.name.startsWith("splatMain")),
+    );
+    if (pick?.hit && pick.distance > 1e-3) return pick.distance;
+    return null;
   }
 
   /**

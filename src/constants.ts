@@ -35,6 +35,17 @@ export const CAM_SPEED = 0.03;
 export const MESH_EDGE_WIDTH = 0.1;
 export const VIEWPORT_BORDER_THICKNESS = 3;
 
+// Configuration for the Vergence-Accommodation Conflict (VAC) visualizer
+// - VAC_COMFORT_DIOPTRES: half-width of the "zone of comfort" in dioptres.
+//   Conflicts within +/- this value are considered comfortable
+//   (Shibata et al. 2011, "The zone of comfort").
+// - default/min/max vergence distance (metres) for the fixation target the
+//   eyes converge on; accommodation distance is fixed by the optics.
+export const VAC_COMFORT_DIOPTRES = 0.5;
+export const VERGENCE_DIST_DEFAULT = 1.0;
+export const VERGENCE_DIST_MIN = 0.2;
+export const VERGENCE_DIST_MAX = 3.0;
+
 // Configuration for the PIP view
 export const PIP_VIEWPORT_WIDTH = 0.25; // 25% of the screen width (deprecated, use BASE_PIP_WIDTH_FRACTION)
 export const BASE_PIP_WIDTH_FRACTION = 0.20; // Base PIP viewport width as fraction of canvas (20%)
@@ -93,4 +104,17 @@ export const BASE_DISPLAY_HEIGHT = HMD_CARDBOARD_V2.displayHeight;
 export enum DisplayMode {
     Simulation = "simulation",
     VR = "vr",
+}
+
+// VAC visualizer modes, cycled by a single toggle:
+// - Off: no VAC overlay or readout.
+// - Scene: 3D overlay on; a ray is cast forward from the HMD and the nearest
+//   object it hits sets the vergence distance, so the conflict reflects the real
+//   object the user is looking at.
+// - Manual: 3D overlay on; the vergence distance is set manually with a slider,
+//   to probe the VAC for a hypothetical object at a chosen distance.
+export enum VacMode {
+    Off = "off",
+    Scene = "scene",
+    Manual = "manual",
 }
