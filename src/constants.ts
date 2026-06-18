@@ -107,15 +107,14 @@ export enum DisplayMode {
 }
 
 // VAC visualizer modes, cycled by a single toggle:
-// - Debug: no 3D overlay; the VAC numbers (from the scene raycast) just appear
-//   in the debug text on the left. Keeps the scene clean.
+// - Off: no VAC overlay or readout.
 // - Scene: 3D overlay on; a ray is cast forward from the HMD and the nearest
 //   object it hits sets the vergence distance, so the conflict reflects the real
 //   object the user is looking at.
-// - Test: 3D overlay on; the vergence distance is set manually with a slider, to
-//   probe the VAC for a hypothetical object at a chosen distance.
+// - Manual: 3D overlay on; the vergence distance is set manually with a slider,
+//   to probe the VAC for a hypothetical object at a chosen distance.
 export enum VacMode {
-    Debug = "debug",
+    Off = "off",
     Scene = "scene",
-    Test = "test",
+    Manual = "manual",
 }

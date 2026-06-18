@@ -84,13 +84,13 @@ export class App {
   // distance (metres) of the fixated target the eyes converge on.
   // The accommodation distance is fixed by the optics (hmd.distEye2Img); this
   // vergence distance is the user-driven half of the conflict.
-  // - vergenceDist: the value set by the Test-mode slider.
+  // - vergenceDist: the value set by the Manual-mode slider.
   // - vacMode: whether vergence follows the real scene object (Scene) or the
-  //   slider (Test).
+  //   slider (Manual).
   // - activeVergenceDist: the distance actually used for the current frame,
   //   resolved from the mode; read by the UI for the live readout.
   vergenceDist = VERGENCE_DIST_DEFAULT;
-  vacMode: VacMode = VacMode.Debug;
+  vacMode: VacMode = VacMode.Off;
   // active vergence distance used this frame (null when no object is in view)
   activeVergenceDist: number | null = VERGENCE_DIST_DEFAULT;
 
@@ -257,6 +257,9 @@ export class App {
     if (envID === 0) {
       this.loadPrimitives(scene);
     } else {
+      if (this.vacMode === VacMode.Scene) {
+        this.setVacMode(VacMode.Off);
+      }
       this.loadGaussianSplat(envID, scene);
     }
   }
@@ -461,13 +464,11 @@ export class App {
       // update the VAC overlay using the current eye positions and HMD heading.
       // accommodation distance is the fixed virtual-image distance from the optics.
       // The vergence distance depends on the mode: in Scene mode it tracks the
-      // real object the HMD is looking at; in Test mode it is the slider value.
-      // Debug and Scene modes derive vergence from the scene raycast (the
-      // vergence marker lands on the looked-at object); Test uses the slider.
-      // In Debug the overlay is hidden (update() no-ops) but we still compute
-      // the numbers for the left readout.
+      // real object the HMD is looking at; in Manual mode it is the slider value.
       let vergDist: number | null;
-      if (this.vacMode === VacMode.Test) {
+      if (this.vacMode === VacMode.Off) {
+        vergDist = null;
+      } else if (this.vacMode === VacMode.Manual) {
         vergDist = this.vergenceDist;
       } else {
         vergDist = this.computeSceneVergenceDist(scene); // null if nothing hit
@@ -752,19 +753,32 @@ export class App {
   }
 
   /**
-   * Set the VAC mode (Debug / Scene / Test). The 3D overlay is shown only in
-   * Scene and Test modes; Debug keeps it hidden and reports numbers in the text.
-   * @param mode The new VAC mode.
+   * True when the current environment is a Gaussian splat scene. Splat scenes
+   * currently do not expose reliable object-surface picking for VAC Scene mode.
    */
-  setVacMode(mode: VacMode) {
-    this.vacMode = mode;
-    this.vacVisualizer?.setVisibility(mode !== VacMode.Debug);
+  isGaussianSplatEnvironment(): boolean {
+    return this.envID !== 0;
   }
 
   /**
-   * Get the vergence distance currently driving the VAC readout. In Debug/Scene
-   * modes this is the live distance to the looked-at object (null if no object is
-   * in view); in Test mode it is the slider value.
+   * Set the VAC mode (Off / Scene / Manual). The 3D overlay is shown in Scene
+   * and Manual modes.
+   * @param mode The new VAC mode.
+   */
+  setVacMode(mode: VacMode) {
+    this.vacMode =
+      mode === VacMode.Scene && this.isGaussianSplatEnvironment()
+        ? VacMode.Off
+        : mode;
+    this.vacVisualizer?.setVisibility(
+      this.vacMode === VacMode.Scene || this.vacMode === VacMode.Manual,
+    );
+  }
+
+  /**
+   * Get the vergence distance currently driving the VAC readout. In Off mode it
+   * is null; in Scene mode it is the live distance to the looked-at object
+   * (null if no object is in view); in Manual mode it is the slider value.
    * @returns The active vergence distance in metres, or null when no target.
    */
   getActiveVergenceDist(): number | null {

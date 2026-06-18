@@ -34,6 +34,7 @@ import {
   StandardMaterial,
   Vector3,
 } from "@babylonjs/core";
+import * as GUI from "@babylonjs/gui";
 import { LAYER_FRUSTUM, VAC_COMFORT_DIOPTRES } from "./constants";
 
 /**
@@ -61,14 +62,19 @@ export class VacVisualizer {
   private vergenceMarker!: Mesh;
   private disparityL!: Mesh;
   private disparityR!: Mesh;
+  private disparityLabelAnchor!: Mesh;
 
-  // billboarded text labels so it is unambiguous which element is which
-  private accomLabel!: Mesh;
+  // Text labels annotate the world-space VAC elements. They are shown only when
+  // a valid vergence target exists, so Scene mode does not leave stale labels
+  // behind when the gaze ray misses.
+  private labelTexture!: GUI.AdvancedDynamicTexture;
+  private accomLabel!: GUI.TextBlock;
   private vergLabel!: Mesh;
-  private disparityLabel!: Mesh;
+  private disparityLabel!: GUI.TextBlock;
 
   // materials (emissive colours updated per frame to reflect comfort)
   private gazeMat: StandardMaterial;
+  private vergenceMarkerMat: StandardMaterial;
   private focusMat: StandardMaterial;
   private conflictMat: StandardMaterial;
   private disparityMat: StandardMaterial;
@@ -120,18 +126,33 @@ export class VacVisualizer {
    */
   constructor(scene: Scene) {
     this.scene = scene;
+    this.scene.setRenderingAutoClearDepthStencil(3, true, true, true);
+    this.labelTexture = GUI.AdvancedDynamicTexture.CreateFullscreenUI(
+      "vacLabelUi",
+      true,
+      scene,
+    );
 
-    // focus (accommodation) plane: fixed cyan reference where the eye must focus
+    // focus/accommodation reference: a soft optical surface where the eye focuses
     this.focusMat = new StandardMaterial("vacFocusMat", scene);
-    this.focusMat.emissiveColor = new Color3(0.2, 0.8, 0.95);
+    this.focusMat.emissiveColor = new Color3(0.55, 0.86, 0.95);
+    this.focusMat.diffuseColor = new Color3(0.12, 0.28, 0.34);
     this.focusMat.disableLighting = true;
-    this.focusMat.alpha = 0.16;
+    this.focusMat.alpha = 0.72;
     this.focusMat.backFaceCulling = false;
+    this.focusMat.opacityTexture = this.makeFocusFadeTexture(scene);
 
     // gaze lines + vergence marker: colour reflects comfort
     this.gazeMat = new StandardMaterial("vacGazeMat", scene);
     this.gazeMat.emissiveColor = new Color3(0.25, 0.9, 0.4);
     this.gazeMat.disableLighting = true;
+
+    // vergence target marker: matched to the label, while gaze rays retain
+    // comfort-state colouring.
+    this.vergenceMarkerMat = new StandardMaterial("vacVergenceMarkerMat", scene);
+    this.vergenceMarkerMat.emissiveColor = new Color3(1, 0.82, 0.29);
+    this.vergenceMarkerMat.diffuseColor = new Color3(0.62, 0.43, 0.08);
+    this.vergenceMarkerMat.disableLighting = true;
 
     // conflict bar: the depth gap between vergence and accommodation
     this.conflictMat = new StandardMaterial("vacConflictMat", scene);
@@ -140,16 +161,19 @@ export class VacVisualizer {
 
     // where each gaze line crosses the focus plane (retinal disparity)
     this.disparityMat = new StandardMaterial("vacDisparityMat", scene);
-    this.disparityMat.emissiveColor = new Color3(0.95, 0.4, 0.9);
+    this.disparityMat.emissiveColor = new Color3(0.86, 0.58, 1);
+    this.disparityMat.diffuseColor = new Color3(0.42, 0.18, 0.58);
     this.disparityMat.disableLighting = true;
 
-    // focus plane mesh
-    this.focusPlane = MeshBuilder.CreatePlane(
+    // fixed-focus optical element. A soft disc reads more like an HMD optical
+    // surface than a hard debugging clipping plane.
+    this.focusPlane = MeshBuilder.CreateDisc(
       "vacFocusPlane",
-      { size: 0.5 },
+      { radius: 0.26, tessellation: 64 },
       scene,
     );
     this.focusPlane.material = this.focusMat;
+    this.focusPlane.isPickable = false;
 
     // vergence target marker
     this.vergenceMarker = MeshBuilder.CreateSphere(
@@ -157,7 +181,7 @@ export class VacVisualizer {
       { diameter: 0.03, segments: 12 },
       scene,
     );
-    this.vergenceMarker.material = this.gazeMat;
+    this.vergenceMarker.material = this.vergenceMarkerMat;
 
     // disparity markers on the focus plane
     this.disparityL = MeshBuilder.CreateSphere(
@@ -172,23 +196,37 @@ export class VacVisualizer {
       scene,
     );
     this.disparityR.material = this.disparityMat;
+    this.disparityLabelAnchor = MeshBuilder.CreateSphere(
+      "vacDisparityLabelAnchor",
+      { diameter: 0.001, segments: 4 },
+      scene,
+    );
+    this.disparityLabelAnchor.visibility = 0;
+    this.disparityLabelAnchor.isPickable = false;
 
     // text labels (colours match the elements they annotate)
     this.accomLabel = this.makeLabel(
       "vacAccomLabel",
-      "ACCOMMODATION (fixed focus)",
-      "#33ccf2",
+      "ACCOMMODATION",
+      "#b8f3ff",
+      18,
     );
-    this.vergLabel = this.makeLabel(
+    this.accomLabel.linkWithMesh(this.focusPlane);
+    this.accomLabel.linkOffsetY = -62;
+    this.vergLabel = this.makeWorldLabel(
       "vacVergLabel",
-      "VERGENCE (gaze target)",
+      "VERGENCE",
       "#ffd24a",
     );
     this.disparityLabel = this.makeLabel(
       "vacDisparityLabel",
-      "retinal disparity",
-      "#f266e6",
+      "RETINAL DISPARITY",
+      "#dc94ff",
+      10,
     );
+    this.disparityLabel.linkWithMesh(this.disparityLabelAnchor);
+    this.disparityLabel.linkOffsetX = 20;
+    this.disparityLabel.linkOffsetY = 76;
 
     // gaze + conflict tubes (initial placeholder geometry, rebuilt on update)
     const o = Vector3.Zero();
@@ -204,6 +242,7 @@ export class VacVisualizer {
     );
 
     this.setLayerMask(LAYER_FRUSTUM);
+    this.setLabelsVisible(false);
     this.setVisibility(true);
   }
 
@@ -234,25 +273,104 @@ export class VacVisualizer {
   }
 
   /**
-   * Helper to create a camera-facing text label drawn onto a plane.
+   * Create an alpha texture for the accommodation disc. The center stays clear,
+   * while the sides and rim fall away smoothly so the surface reads as a soft
+   * optical component rather than a flat overlay.
+   * @param scene The scene that owns the dynamic texture.
+   * @returns A radial alpha texture for the focus plane material.
+   */
+  private makeFocusFadeTexture(scene: Scene): DynamicTexture {
+    const size = 256;
+    const texture = new DynamicTexture(
+      "vacFocusFadeTexture",
+      { width: size, height: size },
+      scene,
+      false,
+    );
+    texture.hasAlpha = true;
+
+    const ctx = texture.getContext();
+    ctx.clearRect(0, 0, size, size);
+    const image = ctx.getImageData(0, 0, size, size);
+    const smoothstep = (edge0: number, edge1: number, x: number) => {
+      const t = Math.max(0, Math.min(1, (x - edge0) / (edge1 - edge0)));
+      return t * t * (3 - 2 * t);
+    };
+
+    for (let y = 0; y < size; y += 1) {
+      for (let x = 0; x < size; x += 1) {
+        const nx = (x / (size - 1)) * 2 - 1;
+        const ny = (y / (size - 1)) * 2 - 1;
+        const radial = Math.sqrt(nx * nx + ny * ny);
+        const sideFade = 1 - smoothstep(0.18, 1, Math.abs(nx));
+        const rimFade = 1 - smoothstep(0.62, 1, radial);
+        const verticalSoftening = 0.84 + 0.16 * (1 - smoothstep(0, 1, Math.abs(ny)));
+        const centerLift = 0.2 + 0.8 * (1 - smoothstep(0, 0.52, radial));
+        const alpha = Math.max(
+          0,
+          Math.min(1, sideFade * rimFade * verticalSoftening * centerLift),
+        );
+        const i = (y * size + x) * 4;
+        image.data[i] = 255;
+        image.data[i + 1] = 255;
+        image.data[i + 2] = 255;
+        image.data[i + 3] = Math.round(alpha * 255);
+      }
+    }
+
+    ctx.putImageData(image, 0, 0);
+    texture.update(false);
+
+    return texture;
+  }
+
+  /**
+   * Helper to create a screen-space text label linked to a world-space mesh.
    * Used to annotate the accommodation / vergence / disparity elements so the
    * overlay reads clearly without needing a separate key.
+   * @param name The GUI control name.
+   * @param text The label text.
+   * @param color The text colour (CSS string).
+   * @param fontSize The screen-space font size in pixels.
+   * @returns The created GUI text label.
+   */
+  private makeLabel(
+    name: string,
+    text: string,
+    color: string,
+    fontSize: number,
+  ): GUI.TextBlock {
+    const label = new GUI.TextBlock(name, text);
+    label.color = color;
+    label.fontFamily = "sans-serif";
+    label.fontSizeInPixels = fontSize;
+    label.fontWeight = "bold";
+    label.outlineColor = "#1b1b1b";
+    label.outlineWidth = 2;
+    label.resizeToFit = true;
+    label.textWrapping = false;
+    label.isPointerBlocker = false;
+    this.labelTexture.addControl(label);
+    return label;
+  }
+
+  /**
+   * Helper to create a camera-facing world-space label. Used for the vergence
+   * target because it needs to sit directly by the 3D marker.
    * @param name The mesh name.
    * @param text The label text.
    * @param color The text colour (CSS string).
    * @returns The created billboarded label mesh.
    */
-  private makeLabel(name: string, text: string, color: string): Mesh {
+  private makeWorldLabel(name: string, text: string, color: string): Mesh {
     const font = "bold 76px sans-serif";
     const texH = 128;
-
-    // measure the text first so the texture/plane fit it exactly (no clipping)
     const probe = new DynamicTexture("probe", 64, this.scene, false);
     const pctx = probe.getContext();
     pctx.font = font;
     const textW = Math.ceil(pctx.measureText(text).width);
     probe.dispose();
-    const texW = textW + 48; // a little horizontal padding
+    const texW = textW + 48;
 
     const dt = new DynamicTexture(
       name + "DT",
@@ -261,9 +379,7 @@ export class VacVisualizer {
       false,
     );
     dt.hasAlpha = true;
-    const ctx = dt.getContext();
-    ctx.clearRect(0, 0, texW, texH);
-    dt.drawText(text, null, 96, font, color, "transparent");
+    dt.drawText(text, null, Math.round(texH * 0.75), font, color, "transparent");
 
     const mat = new StandardMaterial(name + "Mat", this.scene);
     mat.diffuseTexture = dt;
@@ -271,9 +387,9 @@ export class VacVisualizer {
     mat.emissiveTexture = dt;
     mat.emissiveColor = Color3.White();
     mat.disableLighting = true;
+    mat.disableDepthWrite = true;
     mat.backFaceCulling = false;
 
-    // plane sized to the texture aspect ratio so the text is never clipped
     const planeH = 0.045;
     const plane = MeshBuilder.CreatePlane(
       name,
@@ -282,6 +398,8 @@ export class VacVisualizer {
     );
     plane.material = mat;
     plane.billboardMode = Mesh.BILLBOARDMODE_ALL;
+    plane.alwaysSelectAsActiveMesh = true;
+    plane.renderingGroupId = 3;
     plane.isPickable = false;
     return plane;
   }
@@ -328,17 +446,17 @@ export class VacVisualizer {
 
     const fwd = forward.normalizeToNew();
     const eyeMid = eyeL.add(eyeR).scale(0.5);
-    const up = Vector3.Up();
+    const worldUp = Vector3.Up();
 
     // the accommodation (focus) plane is fixed by the optics and is always drawn
     const focusCenter = eyeMid.add(fwd.scale(accommodationDist));
     this.focusPlane.position.copyFrom(focusCenter);
     this.focusPlane.lookAt(eyeMid);
-    this.accomLabel.position.copyFrom(focusCenter.add(up.scale(0.3)));
 
     // without a target (no object in view) there is no defined vergence: hide
-    // every vergence-dependent element, leaving only the locked focus plane.
+    // the 3D VAC overlay. The text readout still reports that focus is locked.
     const hasTarget = vergenceDist !== null;
+    this.focusPlane.isVisible = hasTarget;
     this.setTargetVisible(hasTarget);
     if (!hasTarget) return;
 
@@ -355,6 +473,7 @@ export class VacVisualizer {
     const crossR = eyeR.add(vergPoint.subtract(eyeR).scale(t));
     this.disparityL.position.copyFrom(crossL);
     this.disparityR.position.copyFrom(crossR);
+    this.disparityLabelAnchor.position.copyFrom(crossL.add(crossR).scale(0.5));
 
     // conflict bar: the on-axis gap between the focus plane and the vergence point
     this.updateTube(
@@ -363,12 +482,7 @@ export class VacVisualizer {
       vergPoint,
       this.conflictRadius,
     );
-
-    // position the vergence / disparity labels above the elements they annotate
-    this.vergLabel.position.copyFrom(vergPoint.add(up.scale(0.06)));
-    this.disparityLabel.position.copyFrom(
-      crossL.add(crossR).scale(0.5).add(up.scale(0.05)),
-    );
+    this.vergLabel.position.copyFrom(vergPoint.add(worldUp.scale(0.08)));
 
     // colour the comfort-dependent meshes
     const stats = VacVisualizer.computeStats(accommodationDist, vergenceDist);
@@ -389,11 +503,23 @@ export class VacVisualizer {
       this.conflictBar,
       this.disparityL,
       this.disparityR,
-      this.vergLabel,
-      this.disparityLabel,
+      this.disparityLabelAnchor,
     ]) {
       m.isVisible = visible;
     }
+    this.setLabelsVisible(visible);
+  }
+
+  /**
+   * Show or hide all world-space label planes. Kept centralized so the labels
+   * remain available without reintroducing the fragile rendered-text overlay.
+   * @param visible Whether the 3D text labels should be visible.
+   */
+  private setLabelsVisible(visible: boolean) {
+    for (const label of [this.accomLabel, this.disparityLabel]) {
+      label.isVisible = visible;
+    }
+    this.vergLabel.isVisible = visible;
   }
 
   /**
@@ -403,6 +529,7 @@ export class VacVisualizer {
   public setVisibility(isVisible: boolean) {
     this.isVisible = isVisible;
     for (const m of this.meshes()) m.isVisible = isVisible;
+    this.setLabelsVisible(isVisible);
   }
 
   /**
@@ -426,13 +553,12 @@ export class VacVisualizer {
    * Dispose all VAC meshes and materials.
    */
   public dispose() {
-    // dispose label materials + their dynamic textures before the meshes
-    for (const label of [this.accomLabel, this.vergLabel, this.disparityLabel]) {
-      label.material?.dispose(false, true);
-    }
+    this.vergLabel.material?.dispose(false, true);
+    this.labelTexture.dispose();
     for (const m of this.meshes()) m.dispose();
     this.gazeMat.dispose();
-    this.focusMat.dispose();
+    this.vergenceMarkerMat.dispose();
+    this.focusMat.dispose(false, true);
     this.conflictMat.dispose();
     this.disparityMat.dispose();
   }
@@ -447,12 +573,11 @@ export class VacVisualizer {
       this.vergenceMarker,
       this.disparityL,
       this.disparityR,
+      this.disparityLabelAnchor,
       this.gazeL,
       this.gazeR,
       this.conflictBar,
-      this.accomLabel,
       this.vergLabel,
-      this.disparityLabel,
     ];
   }
 }

@@ -15,6 +15,7 @@ https://github.com/user-attachments/assets/5743b082-1396-4f69-91ba-68134cd0c647
 - Switch scenes across primitive scenes and open source gaussian splats
 - Enter into a "VR" mode that simulates the actual HMD view, allowing the user, when using a mobile device, to see the actual outputs in a Google Cardboard or similar HMD enclosure
 - Basic WASD + mouse camera movement
+- VAC scene mode is currently available for the primitive scene only. Gaussian splat scenes still support manual VAC adjustment, but scene-driven VAC is disabled until reliable splat point/surface picking is implemented.
 
 ## Quick Start
 

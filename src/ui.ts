@@ -104,13 +104,13 @@ export class UI {
             }
         }
 
-        // Test-mode vergence distance slider: places a hypothetical fixation
+        // Manual-mode vergence distance slider: places a hypothetical fixation
         // target at a chosen distance so the learner can sweep the VAC. Only
-        // meaningful in Test mode, so it lives in its own panel that is hidden
+        // meaningful in Manual mode, so it lives in its own panel that is hidden
         // in Scene mode (where the real object sets the vergence distance).
         const vergencePanel = new GUI.StackPanel();
         vergencePanel.height = '40px';
-        vergencePanel.isVisible = app.vacMode === VacMode.Test;
+        vergencePanel.isVisible = app.vacMode === VacMode.Manual;
         const vergenceLabel = new GUI.TextBlock();
         vergenceLabel.text = `vergenceDist: ${app.vergenceDist.toFixed(3)}`;
         vergenceLabel.height = '20px';
@@ -222,16 +222,24 @@ export class UI {
         vacVergBlock.color = '#ffd24a';  // gold = vergence
 
         const vacModeName = (m: VacMode) =>
-            m === VacMode.Debug ? 'debug' : m === VacMode.Scene ? 'scene object' : 'test slider';
+            m === VacMode.Off ? 'off'
+                : m === VacMode.Scene ? 'scene object' : 'manual slider';
 
         // refresh the VAC readout from the current optics + active vergence distance
         function refreshVacStats() {
             const vergDist = app.getActiveVergenceDist();
             vacModeBlock.text = `mode: ${vacModeName(app.vacMode)}`;
+            if (app.vacMode === VacMode.Off) {
+                vacAccomBlock.text = 'accommodation: --';
+                vacVergBlock.text = 'vergence: --';
+                vacConflictBlock.text = 'conflict: --';
+                vacConflictBlock.color = '#9fb4bb';
+                return;
+            }
             vacAccomBlock.text =
                 `accommodation: ${hmd.distEye2Img.toFixed(2)}m (${(1 / hmd.distEye2Img).toFixed(2)}D)`;
 
-            // no object in view (Debug/Scene looking at empty space): only the
+            // no object in view (Scene looking at empty space): only the
             // fixed accommodation is defined, so report the vergence as absent
             if (vergDist === null) {
                 vacVergBlock.text = 'vergence: no object in view';
@@ -251,7 +259,7 @@ export class UI {
         }
         refreshVacStats();
 
-        // the vergence distance changes as the HMD/objects move (Debug/Scene),
+        // the vergence distance changes as the HMD/objects move in Scene mode,
         // so keep the readout live every frame
         scene.onBeforeRenderObservable.add(() => refreshVacStats());
 
@@ -290,34 +298,55 @@ export class UI {
         });
         buttonPanel.addControl(toggleVRButton);
 
-        // Add frustum togglers
-        // - the left and right frustum toggle buttons to the buttonPanel
-        const toggleFrustumL = this.createToggleButton('Frustum L', '#8B0000', () => {
-            app.frustumVisualizerL?.toggleVisibility();
-            hmd.debugPrintPositions();
-        });
-        const toggleFrustumR = this.createToggleButton('Frustum R', '#00008B', () => {
-            app.frustumVisualizerR?.toggleVisibility();
-        });
-        buttonPanel.addControl(toggleFrustumL);
-        buttonPanel.addControl(toggleFrustumR);
+        // Single frustum state toggler. The frustums start visible, so the
+        // initial label reflects the current scene instead of forcing a side.
+        type FrustumState = 'left' | 'right' | 'both' | 'none';
+        const FRUSTUM_CYCLE: FrustumState[] = ['left', 'right', 'both', 'none'];
+        let frustumState: FrustumState = 'both';
+        const frustumButtonText = (state: FrustumState) => `Frustum: ${state}`;
+        const applyFrustumState = (state: FrustumState) => {
+            app.frustumVisualizerL?.setVisibility(state === 'left' || state === 'both');
+            app.frustumVisualizerR?.setVisibility(state === 'right' || state === 'both');
+        };
+        const frustumButton = this.createToggleButton(
+            frustumButtonText(frustumState),
+            '#5b4a91',
+            () => {
+                frustumState =
+                    FRUSTUM_CYCLE[(FRUSTUM_CYCLE.indexOf(frustumState) + 1) % FRUSTUM_CYCLE.length];
+                applyFrustumState(frustumState);
+                const label = frustumButton.children?.[0] as GUI.TextBlock | undefined;
+                if (label) label.text = frustumButtonText(frustumState);
+                hmd.debugPrintPositions();
+            },
+        );
+        frustumButton.width = '120px';
+        buttonPanel.addControl(frustumButton);
 
-        // Single VAC toggle cycling Debug -> Scene -> Test. Debug keeps the 3D
-        // overlay off (numbers only, in the left text); Scene/Test show the 3D
-        // overlay, with the test-distance slider visible only in Test mode.
-        const VAC_CYCLE = [VacMode.Debug, VacMode.Scene, VacMode.Test];
+        // Single VAC toggle cycling Off -> Scene -> Manual. Scene follows the
+        // looked-at object; Manual shows the slider for direct vergence control.
+        const primitiveVacCycle = [VacMode.Off, VacMode.Scene, VacMode.Manual];
+        const splatVacCycle = [VacMode.Off, VacMode.Manual];
+        const activeVacCycle = () =>
+            app.isGaussianSplatEnvironment() ? splatVacCycle : primitiveVacCycle;
         const vacButtonText = (m: VacMode) =>
-            `VAC: ${m === VacMode.Debug ? 'debug' : m === VacMode.Scene ? 'scene' : 'test'}`;
+            `VAC: ${m === VacMode.Off ? 'off'
+                : m === VacMode.Scene ? 'scene' : 'manual'}`;
+        const refreshVacControls = () => {
+            vergencePanel.isVisible = app.vacMode === VacMode.Manual;
+            const label = vacModeButton.children?.[0] as GUI.TextBlock | undefined;
+            if (label) label.text = vacButtonText(app.vacMode);
+            refreshVacStats();
+        };
         const vacModeButton = this.createToggleButton(
             vacButtonText(app.vacMode),
             '#007a8a',
             () => {
-                const next = VAC_CYCLE[(VAC_CYCLE.indexOf(app.vacMode) + 1) % VAC_CYCLE.length];
+                const cycle = activeVacCycle();
+                const currentIndex = cycle.indexOf(app.vacMode);
+                const next = cycle[(currentIndex + 1) % cycle.length];
                 app.setVacMode(next);
-                vergencePanel.isVisible = next === VacMode.Test;
-                const label = vacModeButton.children?.[0] as GUI.TextBlock | undefined;
-                if (label) label.text = vacButtonText(next);
-                refreshVacStats();
+                refreshVacControls();
             },
         );
         buttonPanel.addControl(vacModeButton);
@@ -365,9 +394,11 @@ export class UI {
         // create a left and right button to change the loaded environment
         const leftButton = this.createToggleButton('<', '#800080', () => {
             app.loadNextEnvironment(false, scene);
+            refreshVacControls();
         });
         const rightButton = this.createToggleButton('>', '#800080', () => {
             app.loadNextEnvironment(true, scene);
+            refreshVacControls();
         });
         leftButton.cornerRadius = 10;
         rightButton.cornerRadius = 10;
